@@ -27,6 +27,10 @@ jobs:
           - { os: ubuntu-latest, python: "3.15" }
           - { os: ubuntu-latest, python: "3.12" }
           - { os: windows-latest, python: "3.14" }
+    env:
+      # Overrides .python-version for every uv command, so each job really uses its matrix Python.
+      # Without this, `uv run` re-creates the environment with the pinned version.
+      UV_PYTHON: ${{ matrix.python }}
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10
@@ -35,11 +39,13 @@ jobs:
       - name: Install Python ${{ matrix.python }}
         run: uv python install ${{ matrix.python }}
       - name: Install locked dependencies
-        run: uv sync --locked --python ${{ matrix.python }}
+        run: uv sync --locked
       - name: Ruff lint
         run: uv run ruff check .
       - name: Ruff format check
         run: uv run ruff format --check .
+      - name: Confirm interpreter version
+        run: uv run python -c "import sys; print(sys.version); assert sys.version.startswith('${{ matrix.python }}')"
       - name: Pytest
         run: uv run pytest -q
       - name: Execute notebook against synthetic demo data (smoke test only)
