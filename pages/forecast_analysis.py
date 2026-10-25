@@ -10,8 +10,19 @@ from gridgreen.forecasting import (
     published_forecast_pairs,
 )
 from gridgreen.ui import charts
-from gridgreen.ui.components import empty_state, footer, get_context, kpi, no_data_state, note, signed, topbar
-from gridgreen.ui.theme import ERROR
+from gridgreen.ui.banners import page_banner
+from gridgreen.ui.components import (
+    empty_state,
+    footer,
+    get_context,
+    kpi,
+    no_data_state,
+    note,
+    plot,
+    signed,
+    topbar,
+)
+from gridgreen.ui.theme import P
 
 ctx = get_context()
 topbar("Forecast Analysis", ctx)
@@ -19,6 +30,7 @@ if ctx is None:
     no_data_state()
     footer()
     st.stop()
+page_banner("forecast")
 
 st.markdown(
     "How close was NESO's published forecast to the later estimated actual? Error is defined as "
@@ -48,24 +60,25 @@ else:
         )
     left, right = st.columns(2)
     with left:
-        st.plotly_chart(charts.forecast_scatter(pairs), width="stretch")
+        plot(charts.forecast_scatter(pairs), width="stretch", theme=None)
     with right:
-        st.plotly_chart(
+        plot(
             charts.histogram(
                 pairs["error"],
                 "Distribution of forecast errors",
                 "Forecast − actual (gCO₂/kWh)",
-                color=ERROR,
+                color=P.ERROR,
                 vline=0,
             ),
             width="stretch",
+            theme=None,
         )
     by_hour = metrics_by(pairs, "hour")
     metric = st.segmented_control(
         "Error by hour of day", ["MAE", "Bias"], default="MAE", required=True, key="gg_fc_metric"
     )
     col = {"MAE": "mae", "Bias": "bias"}[metric]
-    st.plotly_chart(
+    plot(
         charts.bar(
             by_hour,
             "hour",
@@ -76,6 +89,7 @@ else:
             hover_suffix=" gCO₂/kWh",
         ),
         width="stretch",
+        theme=None,
     )
     note(
         "Limitation: the historical endpoint returns only the final forecast for each half-hour, without the time "
@@ -107,7 +121,7 @@ else:
     hm = horizon_metrics(aligned)
     hm = hm.loc[hm["horizon_bucket"].astype(str).isin(horizons or [])]
     st.dataframe(hm, hide_index=True)
-    st.plotly_chart(
+    plot(
         charts.bar(
             hm.assign(h=hm["horizon_bucket"].astype(str)),
             "h",
@@ -117,5 +131,6 @@ else:
             "MAE (gCO₂/kWh)",
         ),
         width="stretch",
+        theme=None,
     )
 footer()

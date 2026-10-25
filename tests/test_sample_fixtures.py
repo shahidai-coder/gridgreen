@@ -22,7 +22,7 @@ def test_fixtures_flow_through_extract_validate_transform():
 
     s, e = datetime(2026, 3, 29, 0, tzinfo=UTC), datetime(2026, 3, 29, 2, tzinfo=UTC)
     for kind in ("intensity", "generation"):
-        body = json.loads((SAMPLE / f"{kind}_sample.json").read_text())
+        body = json.loads((SAMPLE / f"{kind}_sample.json").read_text(encoding="utf-8"))
         respx.get(f"{BASE}/{kind}/2026-03-29T00:00Z/2026-03-29T02:00Z").mock(
             return_value=httpx.Response(200, json=body)
         )

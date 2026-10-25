@@ -56,3 +56,7 @@ ignore = ["PD008", "PD010", "PD101", "RUF001", "RUF002", "RUF003"]
 "pages/*" = ["E501"]
 # Embedded notebook cell source: long lines are cell text, not module code.
 "scripts/build_notebook.py" = ["E501"]
+# Embedded CSS/JS in string literals.
+"src/gridgreen/ui/animated.py" = ["E501"]
+"src/gridgreen/ui/theme.py" = ["E501"]
+"src/gridgreen/ui/banners.py" = ["E501"]

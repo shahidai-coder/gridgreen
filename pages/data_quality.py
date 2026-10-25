@@ -4,6 +4,7 @@ import streamlit as st
 from gridgreen.config import LOCAL_TZ
 from gridgreen.transform import detect_missing_intervals, slots_per_local_day
 from gridgreen.ui import charts
+from gridgreen.ui.banners import page_banner
 from gridgreen.ui.components import (
     csv_download,
     empty_state,
@@ -13,9 +14,10 @@ from gridgreen.ui.components import (
     kpi,
     no_data_state,
     note,
+    plot,
     topbar,
 )
-from gridgreen.ui.theme import ERROR
+from gridgreen.ui.theme import P
 
 ctx = get_context()
 topbar("Data Quality", ctx)
@@ -23,6 +25,7 @@ if ctx is None:
     no_data_state()
     footer()
     st.stop()
+page_banner("quality")
 ds = ctx.ds
 runs = ds.runs
 
@@ -112,7 +115,7 @@ fig = charts.bar(
     hover_suffix="%",
 )
 fig.update_yaxes(range=[0, 105])
-st.plotly_chart(fig, width="stretch")
+plot(fig, width="stretch", theme=None)
 note("Expected half-hours per day follow the UK clock: 46 on the March change, 50 in October, 48 otherwise.")
 if len(missing_actual):
     miss = pd.DataFrame({"interval_start_utc": missing_actual})
@@ -130,7 +133,7 @@ if rej.empty:
 else:
     reasons = rej.groupby(["dataset", "reason"]).size().reset_index(name="records").sort_values("records")
     reasons["label"] = reasons["dataset"] + ": " + reasons["reason"]
-    st.plotly_chart(
+    plot(
         charts.bar(
             reasons,
             "records",
@@ -138,7 +141,7 @@ else:
             "Rejection reasons (distinct payloads, all runs)",
             "Records",
             "",
-            color=ERROR,
+            color=P.ERROR,
         ).update_traces(
             orientation="h",
             x=reasons["records"],
@@ -146,6 +149,7 @@ else:
             hovertemplate="%{y}<br>%{x}<extra></extra>",
         ),
         width="stretch",
+        theme=None,
     )
     st.dataframe(
         rej[

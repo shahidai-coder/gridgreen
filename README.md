@@ -332,6 +332,30 @@ move the snapshot to object storage (or Parquet on S3) instead of git.
 
 Deployment to Streamlit Cloud has **not** been performed or verified from the development environment.
 
+## Interface
+
+* **Light and dark mode.** A toggle in the sidebar switches every colour for the current browser session:
+  page CSS, Plotly templates, the Overview component, the replay heatmap and the illustrations. Both palettes
+  live in `src/gridgreen/ui/theme.py`, and tests check every text colour pair in both against WCAG contrast.
+  Streamlit's own data tables keep Streamlit's style (it offers no API to restyle them from code).
+* **Colour-blind friendly scale.** Intensity runs from blue (clean) to coral (carbon-intensive).
+* **Animated page overviews** (`ui/banners.py`): one small, theme-aware SVG scene per page. All motion stops
+  when the viewer's system asks to reduce motion.
+* **"A day on the grid"** (Overview): a continuously looping illustration in which 24 hours pass in about
+  24 seconds. The colour of the energy flowing through the power lines is the period's real average intensity
+  for that time of day. It has a pause button and stops for viewers who prefer reduced motion.
+
+## Third-party assets
+
+The interactive Overview ("Grid Pulse", `src/gridgreen/ui/pulse/`) is a Streamlit custom component built with
+**Apache ECharts 6.1.0**, vendored as `echarts.min.js` so the app does not depend on a CDN at runtime.
+
+* Licence: Apache-2.0 (`src/gridgreen/ui/pulse/ECHARTS_LICENSE.txt`).
+* Source: npm `echarts@6.1.0`. Its npm integrity hash was verified on download.
+* SHA-256 of the vendored file: `b66b25aeb4df84e33199dc21694014d336d222cbd9deb0e5a7c14bd6aa0d0fd0`.
+* All numbers it displays are computed in Python (`ui/pulse.py`) by the shared analytics functions; the
+  browser code only draws them.
+
 ## Limitations and future work
 
 * No real data has been collected yet (see [Findings](#findings)).

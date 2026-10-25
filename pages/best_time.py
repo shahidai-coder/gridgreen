@@ -2,6 +2,7 @@ import streamlit as st
 
 from gridgreen.analytics import best_windows
 from gridgreen.ui import charts
+from gridgreen.ui.banners import page_banner
 from gridgreen.ui.components import (
     csv_download,
     day_month_year,
@@ -12,6 +13,7 @@ from gridgreen.ui.components import (
     kpi,
     no_data_state,
     note,
+    plot,
     signed,
     topbar,
 )
@@ -22,16 +24,18 @@ if ctx is None:
     no_data_state()
     footer()
     st.stop()
+page_banner("best")
 
 st.markdown(
     "Pick how long your flexible load runs, such as charging an EV or running a heat pump boost. "
     "GridGreen finds the historical windows in the selected period with the lowest average carbon intensity."
 )
 DUR = {"30 min": 30, "1 hour": 60, "2 hours": 120, "3 hours": 180, "4 hours": 240, "6 hours": 360}
-c1, c2, c3 = st.columns([3, 2, 1])
-dur_label = c1.segmented_control(
+# Duration gets its own row so all six options fit on a 1280px laptop screen.
+dur_label = st.segmented_control(
     "Load duration", list(DUR), default="2 hours", required=True, key="gg_bt_dur"
 )
+c2, c3 = st.columns([3, 1])
 cov = c2.slider(
     "Minimum data coverage per window",
     50,
@@ -82,9 +86,10 @@ with d:
 
 typ = res.typical
 best_t = typ.loc[typ["mean"].idxmin()]
-st.plotly_chart(
+plot(
     charts.typical_start_chart(typ, best_t["start_time"], res.baseline, res.duration_minutes / 60),
     width="stretch",
+    theme=None,
 )
 note(
     f"On a typical day in this period, starting at <b>{best_t['start_time']}</b> gave the lowest average "
@@ -113,7 +118,7 @@ st.dataframe(
 csv_download(
     res.top.drop(columns=["start_time"]), "Download windows (CSV)", "gridgreen_best_windows.csv", "gg_dl_bt"
 )
-st.plotly_chart(charts.candidate_windows_chart(res.candidates, res.top), width="stretch")
+plot(charts.candidate_windows_chart(res.candidates, res.top), width="stretch", theme=None)
 
 with st.expander("How this is calculated"):
     st.markdown(f"""

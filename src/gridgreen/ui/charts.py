@@ -6,17 +6,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from gridgreen.ui.theme import (
-    BORDER,
-    EMERALD,
-    ERROR,
-    FOREST,
-    FUEL_ORDER,
-    INTENSITY_SCALE,
-    LIME,
-    TEXT_2,
-    fuel_color,
-)
+from gridgreen.ui.theme import FUEL_ORDER, P, fuel_color
 
 UNIT = "gCO₂/kWh"
 
@@ -44,7 +34,7 @@ def band_line(
             x=df[x],
             y=df[low],
             fill="tonexty",
-            fillcolor=_rgba(EMERALD, 0.14),
+            fillcolor=_rgba(P.EMERALD, 0.14),
             line=dict(width=0),
             name=band_label,
             hoverinfo="skip",
@@ -55,7 +45,7 @@ def band_line(
             x=df[x],
             y=df["mean"],
             name="Mean",
-            line=dict(color=EMERALD, width=2.6),
+            line=dict(color=P.EMERALD, width=2.6),
             hovertemplate="%{y:.0f} " + UNIT + "<extra>Mean</extra>",
         )
     )
@@ -65,7 +55,7 @@ def band_line(
                 x=df[x],
                 y=df["median"],
                 name="Median",
-                line=dict(color=FOREST, width=1.6, dash="dot"),
+                line=dict(color=P.FOREST, width=1.6, dash="dot"),
                 hovertemplate="%{y:.0f} " + UNIT + "<extra>Median</extra>",
             )
         )
@@ -90,7 +80,7 @@ def time_series(df: pd.DataFrame, title: str, stat: str = "mean", show_range: bo
                 x=df["interval_start_local"],
                 y=df["min"],
                 fill="tonexty",
-                fillcolor=_rgba(EMERALD, 0.12),
+                fillcolor=_rgba(P.EMERALD, 0.12),
                 line=dict(width=0),
                 name="Range (min–max)",
                 hoverinfo="skip",
@@ -102,7 +92,7 @@ def time_series(df: pd.DataFrame, title: str, stat: str = "mean", show_range: bo
             x=df["interval_start_local"],
             y=df[stat],
             name=stat.capitalize(),
-            line=dict(color=EMERALD, width=1.8 if len(df) > 500 else 2.4),
+            line=dict(color=P.EMERALD, width=1.8 if len(df) > 500 else 2.4),
             hovertemplate="%{y:.0f} " + UNIT + f"<extra>{stat}</extra>",
         )
     )
@@ -120,7 +110,7 @@ def grid_strip(df: pd.DataFrame, value: str = "actual", title: str | None = None
             z=mat.to_numpy(),
             x=[pd.Timestamp(c) for c in mat.columns],
             y=mat.index,
-            colorscale=INTENSITY_SCALE,
+            colorscale=P.INTENSITY_SCALE,
             zmin=float(np.nanpercentile(mat, 2)) if mat.size else 0,
             zmax=float(np.nanpercentile(mat, 98)) if mat.size else 1,
             colorbar=dict(title=dict(text=UNIT, side="right"), thickness=12, outlinewidth=0),
@@ -147,7 +137,7 @@ def heatmap(
             z=mat.to_numpy(),
             x=list(mat.columns),
             y=[str(i) for i in mat.index],
-            colorscale=INTENSITY_SCALE,
+            colorscale=P.INTENSITY_SCALE,
             colorbar=dict(title=dict(text=UNIT, side="right"), thickness=12, outlinewidth=0),
             hovertemplate="%{y}, %{x}:00<br><b>%{z:.0f}</b> " + UNIT + "<extra></extra>",
         )
@@ -173,10 +163,10 @@ def season_box(df: pd.DataFrame, value: str = "actual") -> go.Figure:
                 go.Box(
                     y=vals,
                     name=f"{season} (n={len(vals):,})",
-                    marker_color=EMERALD,
+                    marker_color=P.EMERALD,
                     line=dict(width=1.4),
                     boxmean=True,
-                    fillcolor=_rgba(EMERALD, 0.18),
+                    fillcolor=_rgba(P.EMERALD, 0.18),
                 )
             )
     fig.update_layout(
@@ -189,7 +179,7 @@ def season_box(df: pd.DataFrame, value: str = "actual") -> go.Figure:
 
 
 def histogram(
-    values: pd.Series, title: str, x_title: str, color: str = EMERALD, vline: float | None = None
+    values: pd.Series, title: str, x_title: str, color: str = P.EMERALD, vline: float | None = None
 ) -> go.Figure:
     fig = go.Figure(
         go.Histogram(
@@ -201,7 +191,7 @@ def histogram(
         )
     )
     if vline is not None:
-        fig.add_vline(x=vline, line=dict(color=FOREST, dash="dot", width=1.5))
+        fig.add_vline(x=vline, line=dict(color=P.FOREST, dash="dot", width=1.5))
     fig.update_layout(
         title=title, xaxis_title=x_title, yaxis_title="Number of half-hours", hovermode="closest", bargap=0.02
     )
@@ -277,7 +267,7 @@ def share_scatter(df: pd.DataFrame, share_col: str, value: str = "actual") -> go
                 y=slope * xs + intercept,
                 mode="lines",
                 name="Least-squares line",
-                line=dict(color=FOREST, width=2),
+                line=dict(color=P.FOREST, width=2),
                 hovertemplate=f"slope {slope:.2f} {UNIT} per pp<extra></extra>",
             )
         )
@@ -292,7 +282,7 @@ def share_scatter(df: pd.DataFrame, share_col: str, value: str = "actual") -> go
 
 
 def correlation_bars(corr: pd.DataFrame) -> go.Figure:
-    colors = [EMERALD if r < 0 else ERROR for r in corr["pearson_r"]]
+    colors = [P.EMERALD if r < 0 else P.ERROR for r in corr["pearson_r"]]
     fig = go.Figure(
         go.Bar(
             x=corr["pearson_r"],
@@ -304,7 +294,7 @@ def correlation_bars(corr: pd.DataFrame) -> go.Figure:
             "<br>n = %{customdata[1]:,}<extra></extra>",
         )
     )
-    fig.add_vline(x=0, line=dict(color=BORDER, width=1))
+    fig.add_vline(x=0, line=dict(color=P.BORDER, width=1))
     fig.update_layout(
         title="Correlation of each fuel share with carbon intensity",
         xaxis_title="Pearson correlation coefficient (r)",
@@ -326,8 +316,8 @@ def typical_start_chart(
             y=typical["mean"],
             mode="lines+markers",
             name="Mean by start time",
-            line=dict(color=EMERALD, width=2.4),
-            marker=dict(size=5, color=EMERALD),
+            line=dict(color=P.EMERALD, width=2.4),
+            marker=dict(size=5, color=P.EMERALD),
             customdata=np.stack([typical["n"], typical["pct_vs_baseline"]], axis=1),
             hovertemplate="Start %{x}<br>Mean %{y:.0f} "
             + UNIT
@@ -342,16 +332,16 @@ def typical_start_chart(
                 y=[row["mean"]],
                 mode="markers",
                 name="Lowest typical start",
-                marker=dict(size=14, color=LIME, line=dict(color=FOREST, width=2)),
+                marker=dict(size=14, color=P.LIME, line=dict(color=P.FOREST, width=2)),
                 hovertemplate="Best start %{x}<br>%{y:.0f} " + UNIT + "<extra></extra>",
             )
         )
     fig.add_hline(
         y=baseline,
-        line=dict(color=TEXT_2, dash="dot", width=1.2),
+        line=dict(color=P.TEXT_2, dash="dot", width=1.2),
         annotation_text=f"Baseline (random start) {baseline:.0f}",
         annotation_position="bottom left",
-        annotation_font=dict(color=TEXT_2, size=12),
+        annotation_font=dict(color=P.TEXT_2, size=12),
         annotation_bgcolor="rgba(255,255,255,0.85)",
     )
     fig.update_layout(
@@ -371,7 +361,7 @@ def candidate_windows_chart(cands: pd.DataFrame, top: pd.DataFrame) -> go.Figure
             x=d["start_local"],
             y=d["mean_intensity"],
             mode="lines",
-            line=dict(color=_rgba(EMERALD, 0.55), width=1),
+            line=dict(color=_rgba(P.EMERALD, 0.55), width=1),
             name="All valid windows",
             hovertemplate="%{x|%d %b %Y %H:%M}<br>%{y:.0f} " + UNIT + "<extra></extra>",
         )
@@ -381,7 +371,7 @@ def candidate_windows_chart(cands: pd.DataFrame, top: pd.DataFrame) -> go.Figure
             x=top["start_local"],
             y=top["mean_intensity"],
             mode="markers",
-            marker=dict(size=11, color=LIME, line=dict(color=FOREST, width=1.5)),
+            marker=dict(size=11, color=P.LIME, line=dict(color=P.FOREST, width=1.5)),
             name="Lowest non-overlapping windows",
             hovertemplate="%{x|%a %d %b %Y %H:%M}<br><b>%{y:.0f}</b> " + UNIT + "<extra></extra>",
         )
@@ -404,7 +394,7 @@ def forecast_scatter(pairs: pd.DataFrame) -> go.Figure:
             x=d["actual"],
             y=d["forecast"],
             mode="markers",
-            marker=dict(size=4, color=_rgba(EMERALD, 0.3)),
+            marker=dict(size=4, color=_rgba(P.EMERALD, 0.3)),
             name="Half-hours",
             hovertemplate="Actual %{x:.0f}<br>Forecast %{y:.0f}<extra></extra>",
         )
@@ -415,7 +405,7 @@ def forecast_scatter(pairs: pd.DataFrame) -> go.Figure:
             y=[lo, hi],
             mode="lines",
             name="Perfect forecast (y = x)",
-            line=dict(color=FOREST, dash="dot", width=1.5),
+            line=dict(color=P.FOREST, dash="dot", width=1.5),
             hoverinfo="skip",
         )
     )
@@ -435,7 +425,7 @@ def bar(
     title: str,
     x_title: str,
     y_title: str,
-    color: str = EMERALD,
+    color: str = P.EMERALD,
     hover_suffix: str = "",
 ) -> go.Figure:
     fig = go.Figure(

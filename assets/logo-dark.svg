@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="176" height="32" viewBox="0 0 176 32" role="img" aria-label="GridGreen">
+  <rect x="1" y="1" width="30" height="30" rx="10" fill="#2563C9"/>
+  <path d="M9 23c0-8 5-13 14-14-1 9-6 14-14 14z" fill="#D6E6FB"/>
+  <path d="M9 23l9-9" stroke="#183B73" stroke-width="1.6" stroke-linecap="round"/>
+  <text x="40" y="22.5" font-family="Poppins, Segoe UI, Arial, sans-serif" font-size="18.5" font-weight="700" fill="#E7EDF7" letter-spacing="-0.3">GridGreen</text>
+</svg>

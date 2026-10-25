@@ -12,9 +12,11 @@ from gridgreen.config import (
     SHARE_TOLERANCE_PP,
     ZERO_CARBON_FUELS,
 )
+from gridgreen.ui.banners import page_banner
 from gridgreen.ui.components import footer, get_context, topbar
 
 topbar("Methodology", get_context())
+page_banner("method")
 seasons = {}
 for m, s in SEASON_BY_MONTH.items():
     seasons.setdefault(s, []).append(m)

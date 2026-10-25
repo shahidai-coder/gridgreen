@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GridGreen overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="echarts.min.js"></script>
+<style>
+  /* Colours are injected from theme.py at render time (applyTheme); these are only fallbacks. */
+  :root { --bg:#F3F6FB; --surface:#FFFFFF; --surface2:#EEF3FB; --border:#E1E7F0; --text:#16213A; --text2:#55627A;
+          --accent:#2563C9; --accent2:#6D4FC2; --on-accent:#FFFFFF; --low-bg:#DCE9FB; --low-text:#1D4E9E;
+          --yellow:#FFF1C9; --yellow-text:#5B4710; --error:#C9473F; --selected:#E2ECFB; --high-bg:#FDEEEE; --high-text:#8A2E2E;
+          --shadow: 0 1px 2px rgba(22,33,58,.04), 0 10px 28px rgba(22,33,58,.07);
+          --font: Poppins, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 400 14px/1.55 var(--font); -webkit-font-smoothing: antialiased; }
+  .page { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 18px; padding: 2px 2px 10px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 22px; padding: 18px 20px; box-shadow: var(--shadow);
+          opacity: 0; transform: translateY(10px); animation: rise .6s cubic-bezier(.2,.7,.2,1) forwards; min-width: 0;
+          transition: box-shadow .25s ease; }
+  .card:hover { box-shadow: 0 2px 4px rgba(22,33,58,.05), 0 16px 36px rgba(22,33,58,.10); }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  .s12 { grid-column: span 12; } .s8 { grid-column: span 8; } .s7 { grid-column: span 7; } .s6 { grid-column: span 6; }
+  .s5 { grid-column: span 5; } .s4 { grid-column: span 4; } .s3 { grid-column: span 3; }
+  .head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 16px; margin-bottom: 8px; }
+  .head h2 { font-size: 16px; font-weight: 600; margin: 0; }
+  .head p { margin: 2px 0 0; color: var(--text2); font-size: 12.5px; }
+  .seg { display: inline-flex; background: var(--surface2); border-radius: 999px; padding: 4px; gap: 2px; }
+  .seg button { font: 500 12.5px/1 var(--font); color: var(--text2); background: transparent; border: 0; border-radius: 999px;
+                padding: 8px 13px; cursor: pointer; transition: background .15s ease, color .15s ease, box-shadow .15s ease; }
+  .seg button:hover { color: var(--text); }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--accent); font-weight: 600; box-shadow: 0 1px 3px rgba(22,33,58,.12); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chart { width: 100%; }
+
+  .greet { grid-column: span 12; padding: 4px 4px 0; }
+  .greet h1 { font-size: clamp(24px, 3.4vw, 32px); font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+  .greet p { margin: 4px 0 0; color: var(--text2); font-size: 14.5px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 999px;
+          background: var(--low-bg); color: var(--low-text); text-transform: capitalize; }
+  .pill.demo { background: var(--high-bg); color: var(--high-text); text-transform: none; margin-left: 8px; }
+  /* The band pill carries meaning: green only for low-carbon bands. */
+  .pill.moderate { background: var(--yellow); color: var(--yellow-text); }
+  .pill.high { background: var(--high-bg); color: var(--high-text); }
+
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 12px; align-items: center; overflow: hidden; }
+  .hero .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .hero .label { font-weight: 600; font-size: 15px; }
+  .hero .big { font-size: clamp(46px, 6.4vw, 66px); font-weight: 700; line-height: 1; letter-spacing: -0.03em; margin: 12px 0 6px; font-variant-numeric: tabular-nums; }
+  .hero .big small { font-size: 16px; font-weight: 500; color: var(--text2); letter-spacing: 0; margin-left: 8px; }
+  .delta { font-weight: 600; font-size: 13.5px; } .delta.down { color: var(--accent); } .delta.up { color: var(--error); }
+  .delta span { color: var(--text2); font-weight: 400; }
+  .when { color: var(--text2); font-size: 12.5px; margin-top: 2px; }
+  #heroSpark { height: 150px; }
+  .scene { width: 100%; height: auto; display: block; border-radius: 18px; }
+
+  /* "A day on the grid": a continuously looping, data-linked illustration */
+  .daycycle { padding: 0; position: relative; overflow: hidden; }
+  .daycycle svg { display: block; width: 100%; height: clamp(210px, 28vw, 290px); }
+  .dc-read { position: absolute; top: 14px; left: 14px; background: color-mix(in srgb, var(--surface) 88%, transparent);
+             backdrop-filter: blur(6px); border: 1px solid var(--border); border-radius: 16px; padding: 10px 14px; min-width: 210px; }
+  .dc-read .k { color: var(--text2); font-size: 11.5px; }
+  .dc-read .t { font-size: 24px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .dc-read .v { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .dc-read .v i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 3px color-mix(in srgb, var(--surface) 60%, transparent); }
+  .dc-bar { position: relative; height: 6px; border-radius: 999px; margin-top: 8px; }
+  .dc-bar b { position: absolute; top: -3px; width: 4px; height: 12px; border-radius: 2px; background: var(--text); transform: translateX(-2px); }
+  .dc-play { position: absolute; top: 14px; right: 14px; font: 600 12.5px/1 var(--font); color: var(--text); cursor: pointer;
+             background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--border); border-radius: 999px; padding: 9px 14px; }
+  .dc-play:hover { border-color: var(--accent); color: var(--accent); }
+  @media (max-width: 560px) { .dc-read { min-width: 0; padding: 8px 10px; } .dc-read .t { font-size: 19px; } }
+  .tip { background: var(--yellow); border-color: transparent; color: var(--yellow-text); display: flex; flex-direction: column; justify-content: space-between; gap: 14px; }
+  .tip .leaf { width: 46px; height: 46px; border-radius: 14px; background: rgba(255,255,255,.7); display: grid; place-items: center; }
+  .tip h3 { font-size: 23px; line-height: 1.2; font-weight: 700; margin: 0; color: var(--yellow-text); }
+  .tip p { margin: 0; font-size: 13.5px; color: var(--yellow-text); }
+
+  .kpi .k-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .kpi .k-value small { font-size: 12.5px; font-weight: 500; color: var(--text2); margin-left: 4px; letter-spacing: 0; }
+  .kpi .k-label { color: var(--text); font-size: 13px; font-weight: 500; }
+  .kpi .k-sub { color: var(--text2); font-size: 11.5px; }
+  .kpi .spark { height: 40px; margin-top: 8px; }
+
+  .mixwrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 8px; align-items: center; }
+  .mixlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .mixlist li { display: grid; grid-template-columns: 12px 70px 1fr 48px; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; transition: background .15s ease; }
+  .mixlist li:hover, .mixlist li.on { background: var(--surface2); }
+  .mixlist .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .mixlist .name { text-transform: capitalize; font-size: 13px; }
+  .mixlist .bar { height: 8px; border-radius: 999px; background: var(--surface2); overflow: hidden; }
+  .mixlist .bar i { display: block; height: 100%; border-radius: 999px; width: 0; transition: width 1s cubic-bezier(.2,.7,.2,1); }
+  .mixlist .pct { text-align: right; font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+  .daytitle { font-size: 17px; font-weight: 600; margin: 0; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+  .stat { background: var(--surface2); border-radius: 14px; padding: 8px 12px; min-width: 92px; }
+  .stat b { display: block; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--text2); font-size: 11.5px; }
+  .daygrid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 8px; align-items: center; }
+
+  .insights { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .insights li { display: grid; grid-template-columns: 40px 1fr; gap: 12px; align-items: start; padding: 14px; border-radius: 18px; background: var(--surface2); transition: transform .2s ease; }
+  .insights li:hover { transform: translateY(-2px); }
+  .insights .ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--surface); color: var(--accent); }
+  .insights b { display: block; font-weight: 600; font-size: 14px; }
+  .insights span { color: var(--text2); font-size: 12.5px; }
+  .note { color: var(--text2); font-size: 12px; margin: 6px 0 0; }
+  .empty { padding: 40px; text-align: center; color: var(--text2); }
+
+  @media (max-width: 960px) { .daygrid { grid-template-columns: 1fr; } }
+  @media (max-width: 820px) { .s8, .s7, .s6, .s5, .s4 { grid-column: span 12; } .s3 { grid-column: span 6; }
+    .daygrid { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); } }
+  @media (max-width: 560px) { .s3 { grid-column: span 12; } .hero, .mixwrap, .daygrid { grid-template-columns: 1fr; } .card { padding: 16px; } }
+  @media (prefers-reduced-motion: reduce) { .card { animation: none; opacity: 1; transform: none; } .mixlist .bar i { transition: none; } }
+</style>
+</head>
+<body>
+<main class="page" id="page"><div class="card s12 empty">Loading…</div></main>
+<script>
+"use strict";
+const REDUCE = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const send = (type, extra = {}) => window.parent.postMessage({ isStreamlitMessage: true, type, ...extra }, "*");
+const charts = {};
+let D = null, T = null, lastKey = "", state = { trend: "Both", band: true, clock: "All days", mix: "Average", day: null };
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (v, d = 0) => v === null || v === undefined ? "–" : Number(v).toLocaleString("en-GB", { maximumFractionDigits: d, minimumFractionDigits: d });
+const slotLabel = (i) => `${String(i >> 1).padStart(2, "0")}:${i & 1 ? "30" : "00"}`;
+const prettyDay = (iso) => new Date(iso + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+const shortDay = (iso) => new Date(iso + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+const longDay = (iso) => new Date(iso + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+const SLOTS = Array.from({ length: 48 }, (_, i) => slotLabel(i));
+
+// Measure the content itself; documentElement.scrollHeight never shrinks below the frame height.
+function postHeight() {
+  const page = document.getElementById("page");
+  send("streamlit:setFrameHeight", { height: Math.ceil(page.getBoundingClientRect().bottom + window.scrollY) + 8 });
+}
+new ResizeObserver(() => { postHeight(); Object.values(charts).forEach((c) => c.resize()); }).observe(document.getElementById("page"));
+window.addEventListener("message", (e) => {
+  const msg = e.data;
+  if (!msg || msg.type !== "streamlit:render") return;
+  const data = msg.args && msg.args.data, key = JSON.stringify(data);
+  if (key === lastKey) { postHeight(); return; }
+  lastKey = key; D = data; build();
+});
+send("streamlit:componentReady", { apiVersion: 1 });
+
+function applyTheme() {
+  const r = document.documentElement.style, m = { bg: "--bg", surface: "--surface", surface2: "--surface2", border: "--border", text: "--text",
+    text2: "--text2", accent: "--accent", accent2: "--accent2", onAccent: "--on-accent", lowBg: "--low-bg", lowText: "--low-text",
+    yellow: "--yellow", yellowText: "--yellow-text", error: "--error", selected: "--selected", shadow: "--shadow", font: "--font",
+    highBg: "--high-bg", highText: "--high-text" };
+  for (const [k, v] of Object.entries(m)) if (T[k]) r.setProperty(v, T[k]);
+}
+function chart(id) { if (charts[id]) charts[id].dispose(); const c = echarts.init(document.getElementById(id), null, { renderer: "canvas" }); charts[id] = c; return c; }
+function base() {
+  return { animation: !REDUCE, animationDuration: 900, animationEasing: "cubicOut", textStyle: { fontFamily: T.font, color: T.text2 },
+    tooltip: { backgroundColor: T.surface, borderColor: T.border, borderWidth: 1, padding: [8, 12], textStyle: { color: T.text, fontFamily: T.font, fontSize: 12.5 },
+      extraCssText: "border-radius:12px;box-shadow:0 10px 28px rgba(22,33,58,.14);" } };
+}
+const axisCommon = () => ({ axisLine: { lineStyle: { color: T.border } }, axisTick: { show: false },
+  axisLabel: { color: T.text2, fontSize: 11 }, splitLine: { lineStyle: { color: T.grid } } });
+const scaleColors = () => T.scale;
+function countUp(el, to, decimals = 0) {
+  if (to === null || to === undefined) { el.textContent = "–"; return; }
+  if (REDUCE) { el.textContent = fmt(to, decimals); return; }
+  const t0 = performance.now(), dur = 1100;
+  const tick = (now) => { const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3); el.textContent = fmt(to * e, decimals); if (p < 1) requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+}
+function seg(id, options, current, onPick) {
+  const el = document.getElementById(id);
+  el.innerHTML = options.map((o) => `<button type="button" aria-pressed="${o === current}">${esc(o)}</button>`).join("");
+  el.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    el.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); onPick(b.textContent); }));
+}
+const ICONS = {
+  clock: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  plug: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0z"/><path d="M12 18v4"/></svg>',
+  calendar: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  wind: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8h11a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h8"/></svg>',
+};
+const LEAF = () => `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14z" fill="${T.lowBg}" stroke="${T.accent}" stroke-width="1.4"/><path d="M5 19l8-8" stroke="${T.accent}" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+
+/* ---------- "A day on the grid" ----------
+   24 hours pass in about 24 seconds. Every colour blends between the light and dark scene palettes with the
+   height of the sun. The energy flowing along the power line takes the colour of the period's real average
+   intensity for that half-hour (the "All days" carbon clock). Pausable; starts paused for reduced motion. */
+let dcRaf = 0;
+const hexMix = (a, b, t) => "#" + [1, 3, 5].map((i) => {
+  const x = parseInt(a.slice(i, i + 2), 16), y = parseInt(b.slice(i, i + 2), 16);
+  return Math.round(x + (y - x) * t).toString(16).padStart(2, "0"); }).join("");
+function scaleColor(v, lo, hi) {
+  const sc = T.scale; let x = Math.min(1, Math.max(0, (v - lo) / ((hi - lo) || 1))) * (sc.length - 1);
+  const i = Math.min(sc.length - 2, Math.floor(x)); return hexMix(sc[i], sc[i + 1], x - i);
+}
+function dayCycle() {
+  cancelAnimationFrame(dcRaf);
+  const svg = document.getElementById("dayScene"); if (!svg) return;
+  const Dy = T.sceneDay, Nt = T.sceneNight, clock = D.clocks["All days"];
+  const vals = clock.filter((v) => v !== null), lo = Math.min(...vals), hi = Math.max(...vals);
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const stars = Array.from({ length: 46 }, () => `<circle cx="${(rnd() * 1000) | 0}" cy="${(rnd() * 130) | 0}" r="${(rnd() * 1.3 + 0.5).toFixed(1)}"/>`).join("");
+  const line = "M430 116 Q500 140 570 122 Q640 144 710 126 Q770 146 830 150";
+  const turbine = (x, y, h, dur) => `<path class="dc-tb" d="M${x - 2} ${y} L${x - 1} ${y - h} L${x + 1} ${y - h} L${x + 2} ${y} Z"/>
+    <g>${[0, 120, 240].map((r) => `<path class="dc-tb" d="M${x} ${y - h} q3 -12 0 -${h * 0.6} q-3 12 0 ${h * 0.6}" transform="rotate(${r} ${x} ${y - h})"/>`).join("")}
+      <animateTransform attributeName="transform" type="rotate" from="0 ${x} ${y - h}" to="360 ${x} ${y - h}" dur="${dur}s" repeatCount="indefinite"/></g>
+    <circle class="dc-tb" cx="${x}" cy="${y - h}" r="3"/>`;
+  const pylon = (x, y) => `<path class="dc-wire" d="M${x - 9} ${y + 70} L${x} ${y} L${x + 9} ${y + 70} M${x - 12} ${y + 10} H${x + 12} M${x - 6} ${y + 30} H${x + 6}" fill="none" stroke-width="2"/>`;
+  const buildings = [[770, 70, 40], [815, 95, 34], [852, 60, 46], [902, 110, 40], [946, 80, 44]];
+  const windows = buildings.map(([x, h, w]) => { let o = ""; for (let r = 0; r < Math.floor(h / 18); r++) for (let c = 0; c < Math.floor(w / 14); c++)
+    if (rnd() > 0.35) o += `<rect class="dc-win" x="${x + 5 + c * 13}" y="${205 - h + 8 + r * 17}" width="6" height="8" rx="1"/>`; return o; }).join("");
+  svg.innerHTML = `
+    <defs><linearGradient id="dcSky" x1="0" y1="0" x2="0" y2="1"><stop id="dcTop" offset="0"/><stop id="dcBot" offset="1"/></linearGradient>
+      <radialGradient id="dcGlow"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>
+    <rect width="1000" height="260" fill="url(#dcSky)"/>
+    <g id="dcStars" fill="#fff">${stars}</g>
+    <circle id="dcHalo" r="46" fill="url(#dcGlow)"/><circle id="dcSun" r="17"/>
+    <g id="dcClouds" opacity=".9"><g><ellipse cx="160" cy="58" rx="40" ry="11"/><ellipse cx="185" cy="50" rx="24" ry="13"/>
+      <animateTransform attributeName="transform" type="translate" values="0 0; 60 0; 0 0" dur="40s" repeatCount="indefinite"/></g>
+      <g><ellipse cx="600" cy="40" rx="34" ry="9"/><ellipse cx="620" cy="34" rx="18" ry="10"/>
+      <animateTransform attributeName="transform" type="translate" values="0 0; -50 0; 0 0" dur="46s" repeatCount="indefinite"/></g></g>
+    <path class="dc-hb" d="M0 170 C120 130 240 140 360 160 S600 128 760 150 S920 140 1000 146 V260 H0Z"/>
+    ${turbine(300, 182, 82, 6)}${turbine(365, 176, 96, 4.6)}${turbine(430, 182, 78, 7.2)}
+    ${pylon(570, 122)}${pylon(710, 126)}
+    <path id="dcLine" class="dc-wire" d="${line}" fill="none" stroke-width="2"/>
+    ${[0, 1, 2, 3, 4, 5].map((i) => `<circle class="dc-pulse" r="5"><animateMotion dur="3.6s" begin="${i * 0.6}s" repeatCount="indefinite" path="${line}"/></circle>`).join("")}
+    <path class="dc-hm" d="M0 205 C140 178 300 186 440 200 S700 176 820 196 S940 190 1000 192 V260 H0Z"/>
+    <g transform="translate(470 200)">${[0, 1, 2, 3, 4].map((i) => `<g transform="translate(${i * 44} ${(i % 2) * 6})"><path class="dc-panel" d="M0 14 L10 0 L44 0 L34 14Z"/><path class="dc-glint" d="M14 2 L22 2 L16 12 L8 12Z"/></g>`).join("")}</g>
+    ${buildings.map(([x, h, w]) => `<rect class="dc-bld" x="${x}" y="${205 - h}" width="${w}" height="${h + 40}" rx="3"/>`).join("")}${windows}
+    <path class="dc-hf" d="M0 232 C160 214 360 222 520 230 S820 214 1000 222 V260 H0Z"/>
+    <g>${[[60, 226], [700, 236], [980, 232]].map(([x, y]) => `<rect class="dc-trunk" x="${x - 1.5}" y="${y - 6}" width="3" height="12"/><circle class="dc-tree" cx="${x}" cy="${y - 12}" r="10"/>`).join("")}</g>`;
+
+  const q = (sel) => svg.querySelectorAll(sel), sun = svg.querySelector("#dcSun"), halo = svg.querySelector("#dcHalo");
+  const top = svg.querySelector("#dcTop"), bot = svg.querySelector("#dcBot"), starsG = svg.querySelector("#dcStars");
+  const bar = document.getElementById("dcBar");
+  bar.style.background = `linear-gradient(90deg, ${clock.map((v, i) => `${v === null ? T.border : scaleColor(v, lo, hi)} ${(i / 47 * 100).toFixed(1)}%`).join(", ")})`;
+  const btn = document.getElementById("dcPlay");
+  let t = REDUCE ? clock.indexOf(lo) : 12, paused = REDUCE, last = performance.now(), shownSlot = -1;
+  const setPaused = (p) => { paused = p; btn.textContent = p ? "Play" : "Pause"; btn.setAttribute("aria-pressed", String(p));
+    if (svg.pauseAnimations) p ? svg.pauseAnimations() : svg.unpauseAnimations(); };
+  btn.onclick = () => setPaused(!paused);
+  setPaused(paused);
+
+  function paint() {
+    const h = t / 2, e = Math.sin(Math.PI * (h - 6) / 12), light = Math.min(1, Math.max(0, (e + 0.15) / 0.55));
+    const mix = (k) => hexMix(Nt[k], Dy[k], light);
+    top.setAttribute("stop-color", mix("sky_top")); bot.setAttribute("stop-color", mix("sky_bottom"));
+    starsG.setAttribute("opacity", (1 - light).toFixed(2));
+    const day = h >= 6 && h <= 18, hn = day ? h - 6 : (h > 18 ? h - 18 : h + 6), arc = Math.sin(Math.PI * hn / 12);
+    const x = 70 + (hn / 12) * 860, y = 214 - (day ? 168 : 150) * arc;
+    sun.setAttribute("cx", x); sun.setAttribute("cy", y); halo.setAttribute("cx", x); halo.setAttribute("cy", y);
+    sun.setAttribute("fill", day ? Dy.sun : Nt.sun); halo.setAttribute("opacity", day ? 0.9 : 0.35);
+    q("#dcClouds ellipse").forEach((el) => el.setAttribute("fill", mix("cloud")));
+    q(".dc-hb").forEach((el) => el.setAttribute("fill", mix("hill_back")));
+    q(".dc-hm").forEach((el) => el.setAttribute("fill", mix("hill_mid")));
+    q(".dc-hf").forEach((el) => el.setAttribute("fill", mix("hill_front")));
+    q(".dc-tb").forEach((el) => { el.setAttribute("fill", mix("turbine")); el.setAttribute("stroke", hexMix(Nt.turbine_edge, "#8FA3C2", light)); el.setAttribute("stroke-width", "1.4"); });
+    q(".dc-wire").forEach((el) => el.setAttribute("stroke", hexMix(Nt.turbine_edge, "#9AAECB", light)));
+    q(".dc-panel").forEach((el) => el.setAttribute("fill", mix("panel")));
+    q(".dc-glint").forEach((el) => { el.setAttribute("fill", "#fff"); el.setAttribute("opacity", (light * 0.45).toFixed(2)); });
+    q(".dc-bld").forEach((el) => el.setAttribute("fill", hexMix(Nt.hill_back, "#D7E2F2", light)));
+    q(".dc-win").forEach((el) => { el.setAttribute("fill", hexMix(Nt.window, "#AFC5E6", light)); el.setAttribute("opacity", Math.max(1 - light, 0.55).toFixed(2)); });
+    q(".dc-tree").forEach((el) => el.setAttribute("fill", mix("tree")));
+    q(".dc-trunk").forEach((el) => el.setAttribute("fill", mix("trunk")));
+    const slot = Math.floor(t) % 48;
+    if (slot !== shownSlot) {
+      shownSlot = slot; const v = clock[slot], c = v === null ? T.border : scaleColor(v, lo, hi);
+      q(".dc-pulse").forEach((el) => { el.setAttribute("fill", c); el.setAttribute("stroke", mix("sky_bottom")); el.setAttribute("stroke-width", "1.5"); });
+      document.getElementById("dcTime").textContent = SLOTS[slot];
+      document.getElementById("dcVal").textContent = v === null ? "no data" : `${fmt(v)} gCO₂/kWh${v === lo ? ", cleanest" : v === hi ? ", most intensive" : ""}`;
+      document.getElementById("dcDot").style.background = c;
+      document.getElementById("dcMark").style.left = `${(slot / 47) * 100}%`;
+    }
+  }
+  function frame(now) {
+    if (!paused && !document.hidden) t = (t + (now - last) / 500) % 48;  // 2 half-hours per second
+    last = now; paint(); dcRaf = requestAnimationFrame(frame);
+  }
+  paint(); dcRaf = requestAnimationFrame(frame);
+}
+
+function build() {
+  Object.values(charts).forEach((c) => c.dispose()); for (const k in charts) delete charts[k];
+  const page = document.getElementById("page");
+  if (!D || D.empty) { page.innerHTML = '<div class="card s12 empty">No estimated actuals in this period. Widen the period in the sidebar.</div>'; postHeight(); return; }
+  T = D.theme; applyTheme(); state.day = D.best_day; kpiOrder = 0;
+  const k = D.kpi, L = D.latest, hr = new Date().getHours();
+  const hello = hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening";
+  const ch = L.change_pct, chHtml = ch === null || ch === undefined ? "" :
+    `<div class="delta ${ch <= 0 ? "down" : "up"}">${ch <= 0 ? "↓" : "↑"} ${fmt(Math.abs(ch), 0)}% <span>vs previous half-hour</span></div>`;
+  const vt = D.vs_typical, typHtml = !vt || vt.pct === null ? ""
+    : Math.abs(vt.pct) < 1 ? `<div class="delta down">In line with <span>typical for ${esc(vt.slot)} (${fmt(vt.typical)} g)</span></div>`
+    : `<div class="delta ${vt.pct < 0 ? "down" : "up"}">${fmt(Math.abs(vt.pct), 0)}% ${vt.pct < 0 ? "below" : "above"} <span>typical for ${esc(vt.slot)} (${fmt(vt.typical)} g)</span></div>`;
+  let delay = 0; const d = () => `style="animation-delay:${(delay += 70)}ms"`;
+  const tip = D.tip ? `Starting a 2-hour load at <b>${esc(D.tip.start)}</b> was on average <b>${fmt(D.tip.pct)}% ${esc(D.tip.direction)}</b> than a random start time.`
+                    : "Shift flexible loads, like EV charging, to the greenest hours.";
+  page.innerHTML = `
+  <header class="greet"><h1>${hello} 👋</h1><p>Here’s how Britain’s grid looked from ${longDay(D.daily.dates[0])} to ${longDay(D.daily.dates[D.daily.dates.length - 1])}.
+    ${D.demo ? '<span class="pill demo">Synthetic demo data</span>' : ""}</p></header>
+
+  <section class="card s12 daycycle" ${d()} aria-label="Animated illustration of a typical day on the grid">
+    <svg id="dayScene" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid slice" role="img"
+      aria-label="A landscape moves from night to day and back. Wind turbines turn, solar panels shine by day, and energy flows along power lines to a town. The colour of the flowing energy shows the average carbon intensity for each time of day."></svg>
+    <div class="dc-read" aria-live="off">
+      <div class="k">A typical day in this period</div>
+      <div class="t" id="dcTime">00:00</div>
+      <div class="v"><i id="dcDot"></i><span id="dcVal">–</span></div>
+      <div class="dc-bar" id="dcBar"><b id="dcMark"></b></div>
+    </div>
+    <button type="button" class="dc-play" id="dcPlay" aria-pressed="false">Pause</button>
+  </section>
+
+  <section class="card s8 hero" ${d()}>
+    <div>
+      <div class="row"><span class="label">Carbon intensity</span>${L.band ? `<span class="pill ${bandClass(L.band)}">${esc(L.band)}</span>` : ""}</div>
+      <div class="big"><span id="heroNum">0</span><small>gCO₂/kWh</small></div>
+      ${chHtml}
+      ${typHtml}
+      <div class="when">Latest stored half-hour: ${esc(L.when)}, UK time</div>
+    </div>
+    <div><div class="note" style="margin:0 0 2px">Last 24 hours of stored data</div><div id="heroSpark" aria-hidden="true"></div></div>
+  </section>
+
+  <section class="card s4 tip" ${d()}>
+    <span class="leaf">${LEAF()}</span>
+    <h3>Small changes.<br>Big impact.</h3>
+    <p>${tip}</p>
+  </section>
+
+  ${kpiTile("Period mean", "kMean", "gCO₂/kWh", `Median ${fmt(k.median)}`, "spMean")}
+  ${kpiTile("Lowest", "kMin", "gCO₂/kWh", k.min_at, "spMin")}
+  ${kpiTile("Highest", "kMax", "gCO₂/kWh", k.max_at, "spMax")}
+  ${kpiTile("Data completeness", "kComp", "%", `${fmt(k.n)} of ${fmt(k.expected)}; red marks gaps`, "spComp")}
+
+  <section class="card s6" ${d()}>
+    <div class="head"><div><h2>Generation mix</h2><p>Share of generation reported by NESO.</p></div><div class="seg" id="segMix"></div></div>
+    <div id="mixArea"></div>
+  </section>
+
+  <section class="card s6" ${d()}>
+    <div class="head"><div><h2>The carbon clock</h2><p>Average intensity for each half-hour of the day.</p></div><div class="seg" id="segClock"></div></div>
+    <div id="clock" class="chart" style="height:320px" role="img" aria-label="Radial chart of average intensity by time of day"></div>
+  </section>
+
+  <section class="card s12" ${d()}>
+    <div class="head"><div><h2>Daily carbon intensity</h2><p>Drag the slider or scroll on the chart to zoom. Shaded band: lowest to highest half-hour each day.</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="seg" id="segTrend"></div><div class="seg" id="segBand"></div></div></div>
+    <div id="trend" class="chart" style="height:330px" role="img" aria-label="Daily mean carbon intensity over the period"></div>
+  </section>
+
+  <section class="card s7" ${d()}>
+    <div class="head"><div><h2>Every day at a glance</h2><p>Click any day to open it. Drag the colour handles to filter.</p></div></div>
+    <div id="calendar" class="chart" style="height:205px" role="img" aria-label="Calendar heatmap of daily mean intensity"></div>
+  </section>
+
+  <section class="card s5" ${d()} aria-live="polite">
+    <div class="head"><div><p style="margin:0">Selected day</p><h3 class="daytitle" id="dayTitle"></h3></div></div>
+    <div class="stats" id="dayStats"></div>
+    <div class="daygrid">
+      <div id="dayLine" class="chart" style="height:180px" role="img" aria-label="Half-hourly intensity on the selected day"></div>
+      <div id="dayMix" class="chart" style="height:180px" role="img" aria-label="Generation mix on the selected day"></div>
+    </div>
+    <p class="note" id="dayNote"></p>
+  </section>
+
+  <section class="card s12" ${d()}>
+    <div class="head"><div><h2>Where every record went</h2><p id="sankeySub"></p></div></div>
+    <div id="sankey" class="chart" style="height:290px" role="img" aria-label="Flow of records through the latest pipeline run"></div>
+  </section>
+
+  <section class="card s12" ${d()}>
+    <div class="head"><div><h2>What the data says</h2><p>Computed from the selected period.</p></div></div>
+    <ul class="insights">${D.insights.map((i) => `<li><span class="ic">${ICONS[i.kind] || ICONS.clock}</span><div><b>${esc(i.title)}</b><span>${esc(i.text)}</span></div></li>`).join("")}</ul>
+  </section>`;
+
+  if (REDUCE) document.querySelectorAll("svg.scene").forEach((s) => s.pauseAnimations && s.pauseAnimations());
+  countUp(document.getElementById("heroNum"), L.value);
+  countUp(document.getElementById("kMean"), k.mean); countUp(document.getElementById("kMin"), k.min);
+  countUp(document.getElementById("kMax"), k.max); countUp(document.getElementById("kComp"), k.completeness, 1);
+  dayCycle(); drawHeroSpark(); drawSparks(); drawMix(); drawClock(); drawTrend(); drawCalendar(); drawDay(state.day); drawSankey();
+  seg("segTrend", ["Mean", "Median", "Both"], state.trend, (v) => { state.trend = v; drawTrend(); });
+  seg("segBand", ["Range band"], state.band ? "Range band" : "", () => { state.band = !state.band;
+    document.querySelector("#segBand button").setAttribute("aria-pressed", String(state.band)); drawTrend(); });
+  seg("segClock", Object.keys(D.clocks), state.clock, (v) => { state.clock = v; drawClock(); });
+  seg("segMix", ["Average", "By month"], state.mix, (v) => { state.mix = v; drawMix(); });
+  requestAnimationFrame(postHeight);
+}
+const bandClass = (b) => (/high/.test(b) ? "high" : /moderate/.test(b) ? "moderate" : "low");
+let kpiOrder = 0;
+function kpiTile(label, id, unit, sub, spark) {
+  return `<section class="card s3 kpi" style="animation-delay:${200 + 70 * kpiOrder++}ms">
+    <div class="k-value"><span id="${id}">0</span><small>${esc(unit)}</small></div><div class="k-label">${esc(label)}</div>
+    <div class="k-sub">${esc(sub)}</div><div id="${spark}" class="spark" aria-hidden="true"></div></section>`;
+}
+function drawHeroSpark() {
+  const L = D.latest;
+  chart("heroSpark").setOption({ ...base(), grid: { left: 0, right: 6, top: 8, bottom: 2 },
+    tooltip: { ...base().tooltip, trigger: "axis", formatter: (ps) => `${ps[0].axisValue}: <b>${fmt(ps[0].data)}</b> gCO₂/kWh` },
+    xAxis: { type: "category", show: false, data: L.recent_labels, boundaryGap: false }, yAxis: { type: "value", show: false, scale: true },
+    series: [{ type: "line", data: L.recent, smooth: 0.35, showSymbol: false, lineStyle: { width: 2.4, color: T.accent },
+      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: T.accent + "33" }, { offset: 1, color: T.accent + "00" }]) },
+      markPoint: { symbol: "circle", symbolSize: 9, itemStyle: { color: T.accent, borderColor: T.surface, borderWidth: 2 }, label: { show: false },
+        data: [{ coord: [L.recent.length - 1, L.recent[L.recent.length - 1]] }] } }] });
+}
+function drawMix() {
+  const area = document.getElementById("mixArea");
+  if (charts.mix) { charts.mix.dispose(); delete charts.mix; }
+  if (state.mix === "Average") {
+    const entries = Object.entries(D.mix), max = Math.max(...entries.map((e) => e[1]));
+    area.innerHTML = `<div class="mixwrap"><div id="mix" class="chart" style="height:250px" role="img" aria-label="Average generation mix"></div>
+      <ul class="mixlist">${entries.map(([f, v], i) => `<li data-i="${i}"><span class="dot" style="background:${T.fuels[f] || T.text2}"></span>
+        <span class="name">${esc(f)}</span><span class="bar"><i style="background:${T.fuels[f] || T.text2}" data-w="${(v / max) * 100}"></i></span>
+        <span class="pct">${fmt(v, 1)}%</span></li>`).join("")}</ul></div>`;
+    const c = chart("mix");
+    c.setOption({ ...base(), tooltip: { ...base().tooltip, formatter: (p) => `${p.name}: <b>${fmt(p.value, 1)}%</b>` },
+      series: [{ type: "pie", radius: ["56%", "84%"], center: ["50%", "50%"], padAngle: 2, itemStyle: { borderRadius: 8 }, avoidLabelOverlap: false,
+        label: { show: true, position: "center", formatter: () => `{n|${entries[0][0]}}\n{v|${fmt(entries[0][1], 0)}%}`,
+          rich: { n: { color: T.text2, fontSize: 12, fontFamily: T.font }, v: { color: T.text, fontSize: 24, fontWeight: 700, fontFamily: T.font } } },
+        labelLine: { show: false },
+        emphasis: { scale: true, scaleSize: 6, label: { show: true, formatter: (p) => `{n|${p.name}}\n{v|${fmt(p.value, 0)}%}` } },
+        data: entries.map(([f, v]) => ({ name: f, value: v, itemStyle: { color: T.fuels[f] || T.text2 } })) }] }, { notMerge: true });
+    requestAnimationFrame(() => area.querySelectorAll(".bar i").forEach((b) => (b.style.width = b.dataset.w + "%")));
+    const items = area.querySelectorAll(".mixlist li");
+    items.forEach((li) => {
+      li.addEventListener("mouseenter", () => { c.dispatchAction({ type: "highlight", seriesIndex: 0, dataIndex: +li.dataset.i }); li.classList.add("on"); });
+      li.addEventListener("mouseleave", () => { c.dispatchAction({ type: "downplay", seriesIndex: 0, dataIndex: +li.dataset.i }); li.classList.remove("on"); });
+    });
+    c.on("mouseover", (p) => items[p.dataIndex] && items[p.dataIndex].classList.add("on"));
+    c.on("mouseout", (p) => items[p.dataIndex] && items[p.dataIndex].classList.remove("on"));
+  } else {
+    area.innerHTML = '<div id="mix" class="chart" style="height:260px" role="img" aria-label="Generation mix by month"></div>';
+    const m = D.monthly, fuels = Object.keys(D.mix);
+    chart("mix").setOption({ ...base(), tooltip: { ...base().tooltip, trigger: "axis", axisPointer: { type: "shadow" }, valueFormatter: (v) => `${fmt(v, 1)}%` },
+      legend: { type: "scroll", bottom: 0, icon: "circle", textStyle: { color: T.text, fontSize: 12 }, pageTextStyle: { color: T.text2 } },
+      grid: { left: 40, right: 10, top: 10, bottom: 50 },
+      xAxis: { type: "category", data: m.months, ...axisCommon(), splitLine: { show: false } },
+      yAxis: { type: "value", max: 100, ...axisCommon(), axisLabel: { color: T.text2, formatter: "{value}%" } },
+      series: fuels.map((f) => ({ name: f, type: "bar", stack: "mix", data: m.series[f], barWidth: "60%",
+        itemStyle: { color: T.fuels[f] || T.text2 }, emphasis: { focus: "series" } })) }, { notMerge: true });
+  }
+  postHeight();
+}
+function spark(id, values, color, area = true) {
+  chart(id).setOption({ ...base(), grid: { left: 0, right: 0, top: 4, bottom: 0 }, tooltip: { show: false },
+    xAxis: { type: "category", show: false, data: D.daily.dates, boundaryGap: false }, yAxis: { type: "value", show: false, scale: true },
+    series: [{ type: "line", data: values, showSymbol: false, smooth: 0.35, lineStyle: { width: 1.8, color },
+      areaStyle: area ? { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: color + "55" }, { offset: 1, color: color + "00" }]) } : undefined }] });
+}
+function drawSparks() {
+  spark("spMean", D.daily.mean, T.accent); spark("spMin", D.daily.min, T.scale[0]);
+  spark("spMax", D.daily.max, T.scale[4]);
+  const missing = D.daily.missing;
+  chart("spComp").setOption({ ...base(), grid: { left: 0, right: 0, top: 4, bottom: 0 },
+    tooltip: { ...base().tooltip, trigger: "axis", formatter: (ps) => `${prettyDay(D.daily.dates[ps[0].dataIndex])}: <b>${ps[0].data}</b> missing` },
+    xAxis: { type: "category", show: false, data: D.daily.dates }, yAxis: { type: "value", show: false, min: 0, max: Math.max(2, ...missing) },
+    series: [{ type: "bar", data: missing, barWidth: "90%", itemStyle: { color: T.error, borderRadius: 1 } },
+             { type: "line", data: missing.map(() => 0), showSymbol: false, lineStyle: { color: T.accent2, width: 1.5 }, silent: true }] });
+}
+function drawTrend() {
+  const dd = D.daily, band = dd.max.map((v, i) => (v === null || dd.min[i] === null ? null : v - dd.min[i]));
+  const series = [];
+  if (state.band) {
+    series.push({ name: "low", type: "line", data: dd.min, stack: "band", showSymbol: false, lineStyle: { opacity: 0 }, silent: true, tooltip: { show: false } });
+    series.push({ name: "Range", type: "line", data: band, stack: "band", showSymbol: false, lineStyle: { opacity: 0 }, silent: true,
+                  areaStyle: { color: T.accent + "1F" }, tooltip: { show: false } });
+  }
+  if (state.trend !== "Median") series.push({ name: "Mean", type: "line", data: dd.mean, showSymbol: false, smooth: 0.25,
+    lineStyle: { width: 2.4, color: T.accent }, itemStyle: { color: T.accent },
+    areaStyle: state.band ? undefined : { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: T.accent + "40" }, { offset: 1, color: T.accent + "00" }]) },
+    markPoint: { symbol: "pin", symbolSize: 44, label: { color: T.text, fontSize: 11, fontWeight: 600, fontFamily: T.font },
+      formatter: (p) => fmt(p.value), data: [{ type: "min", name: "Cleanest day", itemStyle: { color: T.scale[0] } }, { type: "max", name: "Dirtiest day", itemStyle: { color: T.scale[4] } }] },
+    markLine: { symbol: "none", lineStyle: { color: T.text2, type: "dashed" }, label: { color: T.text2, position: "insideEndTop", formatter: (p) => `period mean ${fmt(p.value)}`, fontFamily: T.font },
+      data: [{ type: "average", name: "Period mean" }] } });
+  if (state.trend !== "Mean") series.push({ name: "Median", type: "line", data: dd.median, showSymbol: false, smooth: 0.25,
+    lineStyle: { width: 1.8, color: T.accent2, type: state.trend === "Both" ? "dashed" : "solid" }, itemStyle: { color: T.accent2 } });
+  chart("trend").setOption({ ...base(),
+    grid: { left: 44, right: 18, top: 28, bottom: 64 },
+    tooltip: { ...base().tooltip, trigger: "axis", axisPointer: { type: "line", lineStyle: { color: T.text2, type: "dashed" } },
+      formatter: (ps) => { const i = ps[0].dataIndex; return `<b>${prettyDay(dd.dates[i])}</b><br>` +
+        `Mean <b>${fmt(dd.mean[i])}</b>, median ${fmt(dd.median[i])}<br>Lowest ${fmt(dd.min[i])}, highest ${fmt(dd.max[i])} gCO₂/kWh`; } },
+    xAxis: { type: "category", data: dd.dates, boundaryGap: false, ...axisCommon(), splitLine: { show: false },
+      axisLabel: { color: T.text2, fontSize: 11, formatter: (v) => shortDay(v), hideOverlap: true } },
+    yAxis: { type: "value", name: "gCO₂/kWh", nameTextStyle: { color: T.text2, fontSize: 11 }, ...axisCommon() },
+    dataZoom: [{ type: "inside" }, { type: "slider", height: 22, bottom: 14, borderColor: T.border, backgroundColor: T.bg,
+      fillerColor: T.accent + "26", dataBackground: { lineStyle: { color: T.text2 }, areaStyle: { color: T.text2 + "33" } },
+      selectedDataBackground: { lineStyle: { color: T.accent }, areaStyle: { color: T.accent + "40" } },
+      handleStyle: { color: T.accent, borderColor: T.accent }, moveHandleStyle: { color: T.accent + "88" }, textStyle: { color: T.text2 },
+      labelFormatter: (i) => shortDay(dd.dates[i] || "") }],
+    series }, { notMerge: true });
+}
+function drawCalendar() {
+  const dd = D.daily, data = dd.dates.map((x, i) => [x, dd.mean[i]]).filter((r) => r[1] !== null);
+  const vals = data.map((r) => r[1]), lo = Math.floor(Math.min(...vals)), hi = Math.ceil(Math.max(...vals));
+  const c = chart("calendar");
+  const sel = () => ({ name: "Selected", type: "effectScatter", coordinateSystem: "calendar", data: [[state.day, 1]], symbolSize: 13,
+    rippleEffect: { scale: REDUCE ? 1 : 2.6, brushType: "stroke", period: 3, color: T.accent }, itemStyle: { color: "transparent", borderColor: T.accent, borderWidth: 2 },
+    silent: true, zlevel: 2, tooltip: { show: false } });
+  c.setOption({ ...base(),
+    tooltip: { ...base().tooltip, formatter: (p) => p.seriesType === "heatmap" ? `<b>${prettyDay(p.data[0])}</b><br>Daily mean <b>${fmt(p.data[1])}</b> gCO₂/kWh<br><span style="color:${T.text2}">Click to open this day</span>` : "" },
+    visualMap: { min: lo, max: hi, calculable: true, orient: "horizontal", left: "center", bottom: 0, itemWidth: 12, itemHeight: 180,
+      inRange: { color: T.scale }, textStyle: { color: T.text2, fontSize: 11 }, seriesIndex: 0, formatter: (v) => `${Math.round(v)} g` },
+    calendar: { range: [dd.dates[0], dd.dates[dd.dates.length - 1]], top: 26, left: 34, right: 10, cellSize: ["auto", 14],
+      itemStyle: { color: T.surface2, borderColor: T.surface, borderWidth: 3, borderRadius: 3 }, splitLine: { show: false },
+      dayLabel: { firstDay: 1, color: T.text2, fontSize: 10, nameMap: ["S", "M", "T", "W", "T", "F", "S"] },
+      // Hide the label of a partial first or last month (a few days only), where it would collide with its neighbour.
+      monthLabel: { color: T.text2, fontSize: 11, formatter: (p) => {
+        const ym = `${p.yyyy}-${p.MM}`, first = dd.dates[0], last = dd.dates[dd.dates.length - 1];
+        if (ym === first.slice(0, 7) && +first.slice(8) > 24) return "";
+        if (ym === last.slice(0, 7) && +last.slice(8) < 8) return "";
+        return p.nameMap; } }, yearLabel: { show: false } },
+    series: [{ type: "heatmap", coordinateSystem: "calendar", data, emphasis: { itemStyle: { borderColor: T.text, borderWidth: 1.5 } } }, sel()] });
+  c.on("click", (p) => { if (p.seriesType === "heatmap") { state.day = p.data[0]; c.setOption({ series: [{}, sel()] }); drawDay(state.day); } });
+}
+function drawDay(iso) {
+  const day = D.days[iso]; if (!day) return;
+  const s = day.slots, valid = s.map((v, i) => [v, i]).filter((r) => r[0] !== null);
+  document.getElementById("dayTitle").textContent = prettyDay(iso);
+  if (!valid.length) { document.getElementById("dayStats").innerHTML = ""; return; }
+  const mean = valid.reduce((a, r) => a + r[0], 0) / valid.length;
+  const mn = valid.reduce((a, r) => (r[0] < a[0] ? r : a)), mx = valid.reduce((a, r) => (r[0] > a[0] ? r : a));
+  document.getElementById("dayStats").innerHTML =
+    `<div class="stat"><b>${fmt(mean)}</b><span>day mean</span></div>` +
+    `<div class="stat"><b style="color:${T.scale[0]}">${fmt(mn[0])}</b><span>low at ${slotLabel(mn[1])}</span></div>` +
+    `<div class="stat"><b style="color:${T.scale[4]}">${fmt(mx[0])}</b><span>high at ${slotLabel(mx[1])}</span></div>`;
+  const b = day.best2h;
+  document.getElementById("dayNote").textContent = b === null || b === undefined ? "No complete 2-hour window on this day."
+    : `Cleanest 2 hours this day: ${slotLabel(b)} to ${slotLabel((b + 4) % 48)} (highlighted). Times are UK wall-clock.`;
+  const allVals = Object.values(D.days).flatMap((x) => x.slots).filter((v) => v !== null);
+  chart("dayLine").setOption({ ...base(), grid: { left: 36, right: 8, top: 12, bottom: 24 },
+    tooltip: { ...base().tooltip, trigger: "axis", formatter: (ps) => `${ps[0].axisValue}: <b>${fmt(ps[0].data)}</b> gCO₂/kWh` },
+    xAxis: { type: "category", data: SLOTS, boundaryGap: false, ...axisCommon(), splitLine: { show: false }, axisLabel: { color: T.text2, fontSize: 10, interval: 11 } },
+    yAxis: { type: "value", ...axisCommon(), min: (v) => Math.max(0, Math.floor(v.min * 0.9)) },
+    visualMap: { show: false, seriesIndex: 0, dimension: 1, min: Math.min(...allVals), max: Math.max(...allVals), inRange: { color: T.scale } },
+    series: [{ type: "line", data: s, smooth: 0.3, showSymbol: false, connectNulls: false, lineStyle: { width: 3 },
+      areaStyle: { opacity: 0.12 },
+      markArea: b === null || b === undefined ? undefined : { silent: true, itemStyle: { color: T.accent + "18", borderColor: T.accent, borderWidth: 1, borderType: "dashed" },
+        data: [[{ xAxis: SLOTS[b] }, { xAxis: SLOTS[Math.min(b + 4, 47)] }]] } }] }, { notMerge: true });
+  const mix = Object.entries(day.mix).sort((a, b2) => b2[1] - a[1]);
+  chart("dayMix").setOption({ ...base(), tooltip: { ...base().tooltip, formatter: (p) => `${p.name}: <b>${fmt(p.value, 1)}%</b>` },
+    series: [{ type: "pie", radius: ["52%", "80%"], center: ["50%", "50%"], padAngle: 2, itemStyle: { borderRadius: 4 }, avoidLabelOverlap: false,
+      label: { show: true, position: "center", formatter: () => mix.length ? `{a|${mix[0][0]}}\n{b|${fmt(mix[0][1], 0)}%}` : "", rich: {
+        a: { color: T.text2, fontSize: 11, fontFamily: T.font, textTransform: "capitalize" }, b: { color: T.text, fontSize: 18, fontWeight: 700, fontFamily: T.font } } },
+      emphasis: { label: { show: true, formatter: (p) => `{a|${p.name}}\n{b|${fmt(p.value, 0)}%}` } }, labelLine: { show: false },
+      data: mix.map(([f, v]) => ({ name: f, value: v, itemStyle: { color: T.fuels[f] || T.text2 } })) }] }, { notMerge: true });
+}
+function drawClock() {
+  const vals = D.clocks[state.clock], ok = vals.filter((v) => v !== null);
+  const lo = Math.min(...ok), hi = Math.max(...ok), best = vals.indexOf(lo), avg = ok.reduce((a, b) => a + b, 0) / ok.length;
+  chart("clock").setOption({ ...base(),
+    tooltip: { ...base().tooltip, formatter: (p) => `${SLOTS[p.dataIndex]}: <b>${fmt(p.value)}</b> gCO₂/kWh` },
+    polar: { radius: ["34%", "86%"], center: ["50%", "52%"] },
+    angleAxis: { type: "category", data: SLOTS, startAngle: 90, clockwise: true, axisLine: { lineStyle: { color: T.border } }, axisTick: { show: false },
+      axisLabel: { color: T.text2, fontSize: 11, interval: 5 }, splitLine: { show: false } },
+    radiusAxis: { min: 0, max: Math.ceil(hi * 1.02), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { show: false },
+      splitLine: { lineStyle: { color: T.grid } } },
+    visualMap: { show: false, min: lo, max: hi, inRange: { color: T.scale }, dimension: 0 },
+    title: { text: SLOTS[best], subtext: `cleanest\n${fmt(lo)} g on average`, left: "center", top: "43%", itemGap: 2,
+      textStyle: { color: T.text, fontSize: 20, fontWeight: 700, fontFamily: T.font },
+      subtextStyle: { color: T.text2, fontSize: 11.5, fontFamily: T.font, lineHeight: 15, align: "center" } },
+    series: [{ type: "bar", coordinateSystem: "polar", data: vals, barCategoryGap: "14%", itemStyle: { borderRadius: 4 },
+      emphasis: { itemStyle: { shadowBlur: 10, shadowColor: "rgba(22,33,58,.25)" } },
+      animationDelay: (i) => (REDUCE ? 0 : i * 12) }] }, { notMerge: true });
+}
+function drawSankey() {
+  const s = D.sankey, sub = document.getElementById("sankeySub");
+  if (!s) { sub.textContent = "No pipeline run with extracted records is recorded yet."; return; }
+  sub.textContent = `Intensity records in the latest data run (${s.started}, ${s.status}). Re-runs show up as updates, never duplicates.`;
+  const color = { "Fetched from API": T.accent2, "Passed validation": T.accent, "Rejected and logged": T.error, "Exact duplicates": T.warn,
+    "Loaded to DuckDB": T.accent, "New half-hours": T.fuels.hydro, "Updated existing": T.scale[1], "Outside range or merged": T.text2 };
+  chart("sankey").setOption({ ...base(), tooltip: { ...base().tooltip, formatter: (p) => p.dataType === "edge"
+      ? `${p.data.source} → ${p.data.target}: <b>${fmt(p.data.value)}</b>` : `${p.name}: <b>${fmt(p.value)}</b>` },
+    series: [{ type: "sankey", left: 6, right: 190, top: 10, bottom: 10, nodeWidth: 14, nodeGap: 18, draggable: true, layoutIterations: 32,
+      emphasis: { focus: "adjacency" }, lineStyle: { color: "gradient", curveness: 0.5, opacity: 0.28 },
+      label: { color: T.text, fontFamily: T.font, fontSize: 12.5, formatter: (p) => `${p.name}  {v|${fmt(p.value)}}`, rich: { v: { color: T.text2, fontSize: 12 } } },
+      data: s.nodes.map((n) => ({ ...n, itemStyle: { color: color[n.name] || T.text2, borderWidth: 0 } })), links: s.links }] });
+}
+</script>
+</body>
+</html>

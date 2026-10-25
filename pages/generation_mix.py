@@ -6,6 +6,7 @@ from gridgreen.analytics import fuel_correlations, generation_share_series
 from gridgreen.config import FOSSIL_FUELS, ZERO_CARBON_FUELS
 from gridgreen.transform import fuel_columns
 from gridgreen.ui import charts
+from gridgreen.ui.banners import page_banner
 from gridgreen.ui.components import (
     csv_download,
     empty_state,
@@ -13,6 +14,7 @@ from gridgreen.ui.components import (
     get_context,
     no_data_state,
     note,
+    plot,
     topbar,
 )
 
@@ -22,6 +24,7 @@ if ctx is None:
     no_data_state()
     footer()
     st.stop()
+page_banner("mix")
 f = ctx.frame
 cols = fuel_columns(f)
 with_gen = f.dropna(subset=["fuels_reported"]) if "fuels_reported" in f else f.iloc[0:0]
@@ -47,18 +50,19 @@ if not selected:
     st.warning("Select at least one fuel.")
     st.stop()
 shares = generation_share_series(f, {"Daily": "D", "Weekly": "W", "Monthly": "MS"}[res])
-st.plotly_chart(charts.stacked_shares(shares[selected], f"{res} mean generation shares"), width="stretch")
+plot(charts.stacked_shares(shares[selected], f"{res} mean generation shares"), width="stretch", theme=None)
 if len(selected) < len(fuels):
     note("Some fuels are hidden, so the stack no longer reaches 100%. Shares are not re-normalised.")
 
 left, right = st.columns([2, 3])
 with left:
-    st.plotly_chart(
+    plot(
         charts.mean_share_bars(
             f[[f"share_{x}" for x in selected]].mean().rename(lambda c: c.removeprefix("share_")),
             "Average share in period",
         ),
         width="stretch",
+        theme=None,
     )
 with right:
     fuel = st.selectbox(
@@ -67,13 +71,13 @@ with right:
         index=selected.index("wind") if "wind" in selected else 0,
         key="gg_gm_scatter",
     )
-    st.plotly_chart(charts.share_scatter(f, f"share_{fuel}"), width="stretch")
+    plot(charts.share_scatter(f, f"share_{fuel}"), width="stretch", theme=None)
 
 st.subheader("Which sources move with intensity?")
 corr = fuel_correlations(f)
 lc, rc = st.columns([3, 2])
 with lc:
-    st.plotly_chart(charts.correlation_bars(corr), width="stretch")
+    plot(charts.correlation_bars(corr), width="stretch", theme=None)
 with rc:
     st.dataframe(
         corr,
@@ -117,7 +121,7 @@ if not d.empty:
         customdata=g["count"],
         hovertemplate="%{x}<br>%{y:.0f} gCO₂/kWh<br>%{customdata:,} half-hours<extra></extra>",
     )
-    st.plotly_chart(fig, width="stretch")
+    plot(fig, width="stretch", theme=None)
 
 st.subheader("Coverage")
 missing_gen = int(f["fuels_reported"].isna().sum())

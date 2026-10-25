@@ -28,7 +28,7 @@ from gridgreen.config import (
     PROJECT_ROOT,
 )
 from gridgreen.transform import build_analytical_frame, expected_slots
-from gridgreen.ui.theme import GLOBAL_CSS, register_plotly_template
+from gridgreen.ui.theme import THEME_KEY, global_css, pal, register_plotly_template, template_name
 
 FILTER_PREFIX = "gg_"
 
@@ -138,9 +138,10 @@ def setup_page() -> None:
         layout="wide",
         initial_sidebar_state="auto",
     )
-    st.logo(str(assets / "logo.svg"), size="large", icon_image=str(assets / "icon.svg"))
+    logo = "logo-dark.svg" if pal().name == "dark" else "logo.svg"  # light wordmark on the dark sidebar
+    st.logo(str(assets / logo), size="large", icon_image=str(assets / "icon.svg"))
     register_plotly_template()
-    st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
+    st.markdown(global_css(pal()), unsafe_allow_html=True)
 
 
 def reset_filters() -> None:
@@ -152,6 +153,12 @@ def sidebar(ds: Dataset | None) -> None:
     with st.sidebar:
         st.markdown(
             '<p class="gg-tagline">Carbon intelligence for a cleaner grid.</p>', unsafe_allow_html=True
+        )
+        st.toggle(
+            "🌙  Dark mode",
+            key=THEME_KEY,
+            help="Switches GridGreen's colours for this browser session. "
+            "Data tables keep Streamlit's own style.",
         )
         if ds is None or ds.empty:
             return
@@ -210,12 +217,43 @@ def signed(x: float, decimals: int = 0) -> str:
     return f"{x:+.{decimals}f}".replace("-", "\u2212")
 
 
-def kpi(label: str, value: str, unit: str = "", sub: str = "") -> None:
+def count_up(value: str) -> str:
+    """Animated count-up for a non-negative integer string; anything else renders as-is.
+
+    The digits come from a CSS counter, so screen readers get the value from a hidden span.
+    """
+    plain = value.replace(",", "")
+    if not plain.isdigit():
+        return html.escape(value)
+    return (
+        f'<span class="gg-count" style="--to:{int(plain)}" aria-hidden="true"></span>'
+        f'<span class="gg-sr">{html.escape(value)}</span>'
+    )
+
+
+def plot(fig, **kwargs) -> None:
+    """Show a Plotly figure in the current session's light or dark template.
+
+    Background and font colours are also set on the figure itself: Streamlit's frontend fills
+    paper_bgcolor from its own (light) theme whenever the figure leaves it unset.
+    """
+    p = pal()
+    fig.update_layout(
+        template=template_name(),
+        paper_bgcolor=p.SURFACE,
+        plot_bgcolor=p.SURFACE,
+        font_color=p.TEXT,
+    )
+    st.plotly_chart(fig, **kwargs)
+
+
+def kpi(label: str, value: str, unit: str = "", sub: str = "", order: int = 0) -> None:
     unit_html = f"<small>{html.escape(unit)}</small>" if unit else ""
     sub_html = f'<div class="gg-kpi-sub">{html.escape(sub)}</div>' if sub else ""
     st.markdown(
-        f'<div class="gg-kpi"><div class="gg-kpi-label">{html.escape(label)}</div>'
-        f'<div class="gg-kpi-value">{html.escape(value)}{unit_html}</div>{sub_html}</div>',
+        f'<div class="gg-kpi" style="animation-delay:{order * 70}ms">'
+        f'<div class="gg-kpi-label">{html.escape(label)}</div>'
+        f'<div class="gg-kpi-value">{count_up(value)}{unit_html}</div>{sub_html}</div>',
         unsafe_allow_html=True,
     )
 
