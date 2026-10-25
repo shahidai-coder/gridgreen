@@ -98,8 +98,9 @@ html, body, .stApp, .stMarkdown, button, input, select, textarea, label {{
 [data-testid="stIconMaterial"], .material-symbols-rounded {{
   font-family: "Material Symbols Rounded" !important;
 }}
-.block-container {{ padding-top: 1.6rem; padding-bottom: 3rem; max-width: 1320px; }}
-@media (max-width: 760px) {{ .block-container {{ padding-top: 4rem; }} }}
+/* Leave room for Streamlit's top toolbar. On Streamlit Community Cloud it carries the
+   Share / star / edit / GitHub buttons and is taller than in local runs. */
+.block-container {{ padding-top: 4.75rem; padding-bottom: 3rem; max-width: 1320px; }}
 h1, h2, h3, h4 {{ font-family: {HEADING_STACK}; color: {TEXT}; letter-spacing: -0.01em; }}
 h1 {{ font-size: 30px !important; font-weight: 800 !important; }}
 h2 {{ font-size: 21px !important; font-weight: 700 !important; margin-top: 0.6rem; }}
@@ -126,6 +127,19 @@ section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-current="
 .gg-dot {{ width: 8px; height: 8px; border-radius: 50%; background: {EMERALD}; display: inline-block; }}
 .gg-dot.warn {{ background: #D9A23B; }} .gg-dot.bad {{ background: {ERROR}; }}
 
+@property --gg-n {{ syntax: "<integer>"; initial-value: 0; inherits: false; }}
+.gg-count {{ --gg-n: var(--to); counter-reset: ggn var(--gg-n); animation: gg-count 1.1s cubic-bezier(.2,.7,.2,1) both; }}
+.gg-count::after {{ content: counter(ggn); }}
+@keyframes gg-count {{ from {{ --gg-n: 0; }} }}
+.gg-sr {{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }}
+@keyframes gg-rise {{ from {{ opacity: 0; transform: translateY(8px); }} to {{ opacity: 1; transform: none; }} }}
+.gg-kpi {{ animation: gg-rise .5s cubic-bezier(.2,.7,.2,1) both; transition: transform .18s ease, box-shadow .18s ease; }}
+.gg-kpi:hover {{ transform: translateY(-2px); box-shadow: 0 8px 22px rgba(18,53,43,.08); }}
+.gg-hero {{ animation: gg-rise .6s cubic-bezier(.2,.7,.2,1) both; }}
+.gg-dot {{ position: relative; }}
+.gg-dot:not(.warn):not(.bad)::after {{ content: ""; position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid {EMERALD}; animation: gg-pulse 2.4s ease-out infinite; }}
+@keyframes gg-pulse {{ from {{ transform: scale(.5); opacity: .7; }} to {{ transform: scale(1.6); opacity: 0; }} }}
 .gg-kpi {{ background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 14px; padding: 16px 18px;
   height: 100%; }}
 .gg-kpi-label {{ color: {TEXT_2}; font-size: 13px; font-weight: 500; }}
