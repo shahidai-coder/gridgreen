@@ -1,0 +1,9 @@
+{
+  "_comment": "HAND-WRITTEN TEST FIXTURE in the NESO /intensity response shape. Not real data. Record 4 is deliberately invalid (actual > 1000).",
+  "data": [
+    {"from": "2026-03-29T00:00Z", "to": "2026-03-29T00:30Z", "intensity": {"forecast": 150, "actual": 142, "index": "moderate"}},
+    {"from": "2026-03-29T00:30Z", "to": "2026-03-29T01:00Z", "intensity": {"forecast": 148, "actual": 139, "index": "moderate"}},
+    {"from": "2026-03-29T01:00Z", "to": "2026-03-29T01:30Z", "intensity": {"forecast": 140, "actual": null, "index": "moderate"}},
+    {"from": "2026-03-29T01:30Z", "to": "2026-03-29T02:00Z", "intensity": {"forecast": 135, "actual": 1200, "index": "moderate"}}
+  ]
+}

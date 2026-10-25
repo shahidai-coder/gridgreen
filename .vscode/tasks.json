@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "GridGreen: Start dashboard",
+      "type": "shell",
+      "windows": { "command": ".\\run_windows.bat" },
+      "osx": { "command": "./run_mac_linux.sh" },
+      "linux": { "command": "./run_mac_linux.sh" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "runOptions": { "runOn": "folderOpen" }
+    },
+    {
+      "label": "GridGreen: Run tests",
+      "type": "shell",
+      "command": "uv run pytest -q",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "GridGreen: Update data",
+      "type": "shell",
+      "command": "uv run python scripts/run_pipeline.py",
+      "problemMatcher": []
+    }
+  ]
+}

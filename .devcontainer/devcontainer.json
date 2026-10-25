@@ -1,0 +1,21 @@
+{
+  "name": "GridGreen",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && ~/.local/bin/uv sync",
+  "postAttachCommand": {
+    "dashboard": "bash ./run_mac_linux.sh"
+  },
+  "forwardPorts": [8501],
+  "portsAttributes": {
+    "8501": { "label": "GridGreen dashboard", "onAutoForward": "openBrowser" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "ms-toolsai.jupyter", "charliermarsh.ruff"],
+      "settings": {
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+        "python.testing.pytestEnabled": true
+      }
+    }
+  }
+}

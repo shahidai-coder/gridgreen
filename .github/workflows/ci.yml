@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint and test (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux: 3.15 = latest stable (primary), 3.12 = declared minimum.
+        # Windows: 3.14, because PyYAML (via Jupyter) has no Windows wheel for 3.15.
+        include:
+          - { os: ubuntu-latest, python: "3.15" }
+          - { os: ubuntu-latest, python: "3.12" }
+          - { os: windows-latest, python: "3.14" }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+      - name: Install Python ${{ matrix.python }}
+        run: uv python install ${{ matrix.python }}
+      - name: Install locked dependencies
+        run: uv sync --locked --python ${{ matrix.python }}
+      - name: Ruff lint
+        run: uv run ruff check .
+      - name: Ruff format check
+        run: uv run ruff format --check .
+      - name: Pytest
+        run: uv run pytest -q
+      - name: Execute notebook against synthetic demo data (smoke test only)
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.15'
+        run: |
+          uv run python scripts/build_demo_db.py
+          GRIDGREEN_DB_PATH=data/demo/gridgreen_demo.duckdb uv run jupyter nbconvert \
+            --to notebook --execute notebooks/gridgreen_eda.ipynb --output /tmp/executed.ipynb

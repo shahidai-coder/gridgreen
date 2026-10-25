@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Data: generated artefacts are reproducible from the pipeline.
+data/parquet/
+data/demo/*.duckdb
+*.duckdb.wal
+*.duckdb.tmp
+# The real snapshot (data/gridgreen.duckdb) is NOT ignored so it can be
+# committed for deployment; see README > Deployment.
+
+# Environment and OS
+.env
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/extensions.json

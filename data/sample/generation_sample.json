@@ -1,0 +1,15 @@
+{
+  "_comment": "HAND-WRITTEN TEST FIXTURE in the NESO /generation response shape. Not real data. Record 3 is deliberately invalid (shares sum to 90%).",
+  "data": [
+    {"from": "2026-03-29T00:00Z", "to": "2026-03-29T00:30Z", "generationmix": [
+      {"fuel": "gas", "perc": 30.1}, {"fuel": "wind", "perc": 41.5}, {"fuel": "nuclear", "perc": 14.2},
+      {"fuel": "imports", "perc": 8.0}, {"fuel": "biomass", "perc": 4.5}, {"fuel": "hydro", "perc": 1.2},
+      {"fuel": "solar", "perc": 0.0}, {"fuel": "coal", "perc": 0.0}, {"fuel": "other", "perc": 0.5}]},
+    {"from": "2026-03-29T00:30Z", "to": "2026-03-29T01:00Z", "generationmix": [
+      {"fuel": "gas", "perc": 29.4}, {"fuel": "wind", "perc": 42.0}, {"fuel": "nuclear", "perc": 14.3},
+      {"fuel": "imports", "perc": 8.3}, {"fuel": "biomass", "perc": 4.4}, {"fuel": "hydro", "perc": 1.1},
+      {"fuel": "solar", "perc": 0.0}, {"fuel": "coal", "perc": 0.0}, {"fuel": "other", "perc": 0.5}]},
+    {"from": "2026-03-29T01:00Z", "to": "2026-03-29T01:30Z", "generationmix": [
+      {"fuel": "gas", "perc": 30.0}, {"fuel": "wind", "perc": 40.0}, {"fuel": "nuclear", "perc": 20.0}]}
+  ]
+}
