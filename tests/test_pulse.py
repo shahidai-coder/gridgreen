@@ -108,3 +108,25 @@ def test_day_cycle_has_both_scene_palettes_and_a_full_clock(tmp_path):
     day, night = p["theme"]["sceneDay"], p["theme"]["sceneNight"]
     assert set(day) == set(night) and {"sky_top", "sun", "window", "cloud"} <= set(day)
     assert len(p["clocks"]["All days"]) == 48  # the illustration cycles through every half-hour
+
+
+def test_bento_payload_parts(tmp_path):
+    frame, p = _payload(tmp_path)
+    a = frame.dropna(subset=["actual"])
+    w = p["weekdays"]
+    assert w["labels"][0] == "Mon" and len(w["mean"]) == len(w["days"]) == 7
+    dow = pd.to_datetime(a["local_date"].astype(str)).dt.day_of_week
+    assert abs(w["mean"][0] - a.loc[dow == 0, "actual"].mean()) < 0.06  # Monday, same rule as the analytics
+    assert abs(p["groups"]["zero_carbon"] - a["share_zero_carbon"].mean()) < 0.06
+    assert p["best_day_mean"] == round(min(v for v in p["daily"]["mean"] if v is not None))
+    assert set(p["fuel_r"]) <= set(p["mix"]) and all(-1 <= r <= 1 for r in p["fuel_r"].values())
+    assert {"ink", "onInk", "bright", "onBright"} <= set(p["theme"])
+
+
+def test_nav_target_opens_known_pages_once():
+    from gridgreen.ui.pulse import NAV_PAGES, nav_target
+
+    assert nav_target({"nav": "best_time", "t": 5}, None) == NAV_PAGES["best_time"]
+    assert nav_target({"nav": "best_time", "t": 5}, 5) is None  # replayed value on a rerun
+    assert nav_target({"nav": "../../etc/passwd", "t": 6}, None) is None  # only known pages
+    assert nav_target(None, None) is None and nav_target("x", None) is None

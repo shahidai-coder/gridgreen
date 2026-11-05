@@ -2,61 +2,67 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 
 import plotly.graph_objects as go
 import plotly.io as pio
 
 # ============================================================================
-# BRAND PALETTE "Skyline Blue": the single place to change GridGreen's colours.
-# Cool off-white canvas, white rounded cards, calm blues with a warm yellow accent.
+# BRAND PALETTE "Lime Grid": the single place to change GridGreen's colours.
+# Soft grey-green canvas, white panels with tinted tiles, charcoal ink for pills
+# and bars, and one bright lime for highlights.
 # The intensity scale is blue (clean) to coral (carbon-intensive): a diverging
 # scale that stays readable with red-green colour blindness. Mirrored (and
 # checked by tests/test_theme.py) in .streamlit/config.toml and assets/*.svg.
 # ============================================================================
-CANVAS = "#F3F6FB"  # cool off-white page background
+CANVAS = "#EDEFEA"  # soft grey-green page background
 SURFACE = "#FFFFFF"  # cards, charts, sidebar
-SURFACE_2 = "#EEF3FB"  # pale blue tint for raised / hover areas
-BORDER = "#E1E7F0"
-GRID = "#EBEFF6"  # chart gridlines
-TEXT = "#16213A"  # deep navy text
-TEXT_2 = "#55627A"  # secondary text (6.2:1 on white)
-EMERALD = "#2563C9"  # primary brand blue: buttons, links, selected states (role name kept for stability)
+SURFACE_2 = "#F2F4EF"  # pale tint for tiles and hover areas
+BORDER = "#E1E5DC"
+GRID = "#E8EBE4"  # chart gridlines
+TEXT = "#1E231F"  # near-black, slightly green
+TEXT_2 = "#565E54"  # secondary text (6.9:1 on white)
+EMERALD = "#477510"  # primary olive green: links, focus, selected states (role name kept for stability)
 ON_ACCENT = "#FFFFFF"  # text placed on the primary blue
-ACCENT_2 = "#6D4FC2"  # secondary accent (violet)
-MINT = "#A9C8F5"
-LIME = "#D6E6FB"  # pale highlight chips
-FOREST = "#183B73"  # deep navy for text on pale chips
-LOW_BG, LOW_TEXT = "#DCE9FB", "#1D4E9E"  # "Low" status pill
-YELLOW, YELLOW_TEXT = "#FFF1C9", "#5B4710"  # warm tip card (complements the blues)
+ACCENT_2 = "#6A4FB8"  # secondary accent (violet)
+MINT = "#D4F25E"  # lime value text on the dark hero
+LIME = "#D4F25E"  # bright lime highlight chips
+FOREST = "#23282F"  # charcoal: text on lime, hero background
+LOW_BG, LOW_TEXT = "#E6F5C0", "#365708"  # "Low" status pill
+YELLOW, YELLOW_TEXT = "#D4F25E", "#1E231F"  # tip card: lime with dark text
 WARNING = "#E0A43A"
 ERROR = "#C9473F"
 SAND = "#F5E9C9"  # pale midpoint of the intensity scale
-SELECTED_BG = "#E2ECFB"  # sidebar selected page
-HERO_GLOW = "#2563C9"
-HERO_TEXT = "#F3F7FE"
-HERO_TEXT_2 = "#C3D6F3"
+SELECTED_BG = "#E6F5C0"  # selected navigation item
+HERO_GLOW = "#3D4D1C"
+HERO_TEXT = "#F4F7EE"
+HERO_TEXT_2 = "#C9D1BF"
 DEMO_BG, DEMO_BORDER, DEMO_TEXT = "#FDEEEE", "#F3C9C9", "#8A2E2E"
-SHADOW = "0 1px 2px rgba(22,33,58,.05), 0 10px 28px rgba(22,33,58,.08)"
+SHADOW = "0 1px 2px rgba(30,35,31,.04), 0 12px 32px rgba(30,35,31,.06)"
+# Overview "bento" layout: a charcoal ink for pills and bars, and one bright lime for highlights.
+# Lime is a highlight only, never a data colour: intensity always uses INTENSITY_SCALE.
+INK, ON_INK = "#23282F", "#FFFFFF"
+BRIGHT, ON_BRIGHT = "#D4F25E", "#1E231F"
 
 # Illustration palette (hero scene). Changing the brand recolours the picture too.
 SCENE = {
-    "sky_top": "#E3EEFC",
-    "sky_bottom": "#F7F3EA",
-    "sun": "#FCE3A0",
-    "hill_back": "#CFE0F6",
-    "hill_mid": "#A9C7EE",
-    "hill_front": "#7FA8E2",
-    "water": "#BFD8F6",
-    "tree": "#6E9BDB",
-    "tree_2": "#8FB4E8",
+    "sky_top": "#E4EEF2",
+    "sky_bottom": "#F6F7EC",
+    "sun": "#F3E27A",
+    "hill_back": "#DCEBC2",
+    "hill_mid": "#BFDC8E",
+    "hill_front": "#97C25A",
+    "water": "#CFE3EA",
+    "tree": "#6F9F38",
+    "tree_2": "#9CC665",
     "trunk": "#8C7A6B",
     "turbine": "#FFFFFF",
     "turbine_edge": "#C9D4E5",
     "house": "#FFFDF8",
     "roof": "#F08A6C",
-    "panel": "#2F4E8F",
-    "window": "#BFD8F6",
+    "panel": "#2E3640",
+    "window": "#DDE8C8",
     "door": "#C98F6B",
     "cloud": "#FFFFFF",
 }
@@ -125,6 +131,10 @@ class Palette:
     DEMO_BORDER: str
     DEMO_TEXT: str
     SHADOW: str
+    INK: str
+    ON_INK: str
+    BRIGHT: str
+    ON_BRIGHT: str
     SCENE: dict
     FUEL_COLORS: dict
     INTENSITY_SCALE: list
@@ -160,6 +170,10 @@ LIGHT = Palette(
     DEMO_BORDER=DEMO_BORDER,
     DEMO_TEXT=DEMO_TEXT,
     SHADOW=SHADOW,
+    INK=INK,
+    ON_INK=ON_INK,
+    BRIGHT=BRIGHT,
+    ON_BRIGHT=ON_BRIGHT,
     SCENE=SCENE,
     FUEL_COLORS=FUEL_COLORS,
     INTENSITY_SCALE=INTENSITY_SCALE,
@@ -167,53 +181,57 @@ LIGHT = Palette(
 
 DARK = Palette(
     name="dark",
-    CANVAS="#0B1220",
-    SURFACE="#121B2E",
-    SURFACE_2="#18233A",
-    BORDER="#26334F",
-    GRID="#1E2A44",
-    TEXT="#E7EDF7",
-    TEXT_2="#A3B1C8",
-    EMERALD="#6EA8FE",
-    ON_ACCENT="#0B1220",
-    ACCENT_2="#B39DFF",
-    MINT="#9CC3FF",
-    LIME="#1F3A66",
-    FOREST="#DCE8FF",
-    LOW_BG="#173257",
-    LOW_TEXT="#A9CBFF",
-    YELLOW="#3A3216",
-    YELLOW_TEXT="#FFE7A3",
+    CANVAS="#0F1210",
+    SURFACE="#171B18",
+    SURFACE_2="#1F2420",
+    BORDER="#2C332D",
+    GRID="#242A25",
+    TEXT="#ECEFE8",
+    TEXT_2="#A6AEA2",
+    EMERALD="#C9EE55",
+    ON_ACCENT="#0F1210",
+    ACCENT_2="#B7A6FF",
+    MINT="#C9EE55",
+    LIME="#C9EE55",
+    FOREST="#0F1210",
+    LOW_BG="#2A3A12",
+    LOW_TEXT="#D6F07A",
+    YELLOW="#C9EE55",
+    YELLOW_TEXT="#0F1210",
     WARNING="#F5B83D",
     ERROR="#FF7B72",
     SAND="#E9DDB2",
-    SELECTED_BG="#1C2D4D",
-    HERO_GLOW="#2B4C86",
-    HERO_TEXT="#F3F7FE",
-    HERO_TEXT_2="#C3D6F3",
+    SELECTED_BG="#26301B",
+    HERO_GLOW="#34431A",
+    HERO_TEXT="#F4F7EE",
+    HERO_TEXT_2="#C9D1BF",
     DEMO_BG="#3A1820",
     DEMO_BORDER="#7A2E3B",
     DEMO_TEXT="#FFD3D8",
-    SHADOW="0 1px 2px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.30)",
+    SHADOW="0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.30)",
+    INK="#ECEFE8",  # inverted in dark mode: light pills and bars on dark tiles
+    ON_INK="#0F1210",
+    BRIGHT="#C9EE55",
+    ON_BRIGHT="#0F1210",
     SCENE={
-        "sky_top": "#0F1C38",
-        "sky_bottom": "#1D2F55",
+        "sky_top": "#0E1A22",
+        "sky_bottom": "#1C2B2A",
         "sun": "#F3E7B5",
-        "hill_back": "#1E3560",
-        "hill_mid": "#25427A",
-        "hill_front": "#2E5394",
-        "water": "#3B64A8",
-        "tree": "#3E6FB8",
-        "tree_2": "#5583C9",
+        "hill_back": "#1E2E1C",
+        "hill_mid": "#28401F",
+        "hill_front": "#355626",
+        "water": "#2B4A55",
+        "tree": "#4C7A2C",
+        "tree_2": "#62913A",
         "trunk": "#5B4E45",
-        "turbine": "#DCE6F5",
-        "turbine_edge": "#8EA2C4",
+        "turbine": "#E3E9DE",
+        "turbine_edge": "#8FA08E",
         "house": "#E9EEF7",
         "roof": "#C9715A",
         "panel": "#0E1A33",
         "window": "#FFD66B",
         "door": "#8F6A4E",
-        "cloud": "#3A4B70",
+        "cloud": "#33403A",
     },
     FUEL_COLORS={
         "wind": "#5B9BF8",
@@ -224,9 +242,9 @@ DARK = Palette(
         "biomass": "#8FD083",
         "imports": "#A9B4CA",
         "coal": "#7C879B",
-        "other": "#55627F",
+        "other": "#5E675C",
         "storage": "#6FDBCB",
-        "zero_carbon": "#6EA8FE",
+        "zero_carbon": "#C9EE55",
         "fossil": "#F0705E",
     },
     INTENSITY_SCALE=[
@@ -326,12 +344,22 @@ def _template(p: Palette) -> go.layout.Template:
     )
 
 
+_TEMPLATE_LOCK = threading.Lock()
+
+
 def register_plotly_template() -> None:
-    """Register light and dark templates; light is the default (notebook, exports)."""
-    for p in (LIGHT, DARK):
-        pio.templates[f"gridgreen_{p.name}"] = _template(p)
-    pio.templates["gridgreen"] = pio.templates["gridgreen_light"]
-    pio.templates.default = "gridgreen"
+    """Register light and dark templates once per process; light is the default (notebook, exports).
+
+    Both palettes are registered together, so one registration serves every session; the lock stops
+    two sessions starting at the same moment from registering twice.
+    """
+    with _TEMPLATE_LOCK:
+        if "gridgreen_dark" in pio.templates and "gridgreen" in pio.templates:
+            return
+        for p in (LIGHT, DARK):
+            pio.templates[f"gridgreen_{p.name}"] = _template(p)
+        pio.templates["gridgreen"] = pio.templates["gridgreen_light"]
+        pio.templates.default = "gridgreen"
 
 
 def global_css(p: Palette) -> str:
@@ -392,6 +420,7 @@ section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-current="
 .gg-topbar {{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end;
   gap: 12px; border-bottom: 1px solid {p.BORDER}; padding-bottom: 14px; margin-bottom: 22px; }}
 .gg-topbar h1 {{ margin: 0; padding: 0; line-height: 1.15; }}
+.gg-topbar.gg-compact {{ border-bottom: 0; padding-bottom: 0; margin-bottom: 10px; align-items: center; }}
 .gg-topbar .gg-period {{ color: {p.TEXT_2}; font-size: 14px; margin-top: 4px; }}
 .gg-status {{ display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: {p.TEXT_2};
   background: {p.SURFACE}; border: 1px solid {p.BORDER}; border-radius: 999px; padding: 6px 12px; }}
@@ -479,6 +508,71 @@ div[data-testid="stExpander"] details {{
 .stApp [data-testid="stExpander"] summary, .stApp [data-testid="stCaptionContainer"], .stApp small {{ color: {p.TEXT_2}; }}
 .stApp [data-testid="stAlert"] {{ background: {p.SURFACE_2}; color: {p.TEXT}; }}
 .stApp [data-testid="stMarkdownContainer"] code {{ background: {p.SURFACE_2}; color: {p.TEXT}; }}
+
+/* ===================== Lime Grid layer: one look for every page =====================
+   Selectors are Streamlit 1.66's own data-testid attributes (checked in a browser). */
+/* Navigation lives in the header and filters in the bar below it. The sidebar is left alone on purpose:
+   on narrow screens Streamlit moves the top navigation into it, so hiding it would remove navigation on phones. */
+[data-testid="stHeader"] {{ background: {p.CANVAS} !important; border-bottom: 1px solid {p.BORDER}; }}
+[data-testid="stTopNav"] {{ gap: 4px; }}
+[data-testid="stTopNavLink"] {{ border-radius: 999px !important; padding: 6px 14px !important; border: 1px solid transparent; transition: background .15s, border-color .15s; }}
+[data-testid="stTopNavLink"] p {{ font-size: 13.5px !important; font-weight: 500; color: {p.TEXT_2} !important; }}
+[data-testid="stTopNavLink"] [data-testid="stIconMaterial"] {{ color: {p.TEXT_2} !important; }}
+[data-testid="stTopNavLink"]:hover {{ background: {p.SURFACE} !important; border-color: {p.BORDER}; }}
+[data-testid="stTopNavLink"][aria-current="page"] {{ background: {p.INK} !important; }}
+[data-testid="stTopNavLink"][aria-current="page"] p, [data-testid="stTopNavLink"][aria-current="page"] [data-testid="stIconMaterial"] {{
+  color: {p.ON_INK} !important; font-weight: 600; }}
+.block-container {{ max-width: 1240px; }}
+
+/* Filter bar: one white rounded strip */
+.st-key-gg_toolbar {{ background: {p.SURFACE}; border: 1px solid {p.BORDER}; border-radius: 999px; padding: 6px 10px 6px 8px;
+  margin-bottom: 18px; box-shadow: {p.SHADOW}; }}
+.st-key-gg_toolbar [data-testid="stDateInputField"] {{ background: {p.SURFACE_2} !important; border: 0 !important; border-radius: 999px !important; }}
+.st-key-gg_toolbar [data-baseweb="input"], .st-key-gg_toolbar [data-baseweb="base-input"] {{ background: {p.SURFACE_2} !important; border: 0 !important; border-radius: 999px !important; }}
+.st-key-gg_toolbar button[kind="secondary"] {{ border-radius: 999px !important; background: {p.SURFACE_2} !important; border: 0 !important; }}
+.gg-db {{ color: {p.TEXT_2}; font-size: 12.5px; text-align: right; padding-right: 8px; }}
+@media (max-width: 760px) {{ .st-key-gg_toolbar {{ border-radius: 24px; }} .gg-db {{ text-align: left; }} }}
+
+/* Page titles: small kicker, big title, lime mark (like the Overview) */
+.gg-topbar {{ border-bottom: 0; padding-bottom: 0; margin-bottom: 18px; align-items: center; }}
+.gg-titlewrap {{ display: flex; align-items: center; gap: 16px; }}
+.gg-kicker {{ display: block; color: {p.TEXT_2}; font-size: 20px; font-weight: 300; letter-spacing: -0.02em; line-height: 1.1; }}
+.stApp .gg-topbar h1 {{ font-size: clamp(30px, 3.6vw, 42px) !important; font-weight: 600 !important; letter-spacing: -0.035em;
+  background: none; -webkit-text-fill-color: {p.TEXT}; color: {p.TEXT}; animation: none; line-height: 1.05; }}
+.gg-mark {{ width: 54px; height: 54px; border-radius: 50%; background: {p.BRIGHT}; color: {p.ON_BRIGHT}; display: grid; place-items: center; flex: none; }}
+.gg-topbar .gg-period {{ font-size: 13px; }}
+
+/* Section headings carry the lime marker used on the Overview tiles */
+.stApp [data-testid="stHeadingWithActionElements"] h3 {{ display: flex; align-items: center; gap: 10px; }}
+.stApp [data-testid="stHeadingWithActionElements"] h3::before {{ content: ""; width: 16px; height: 16px; border-radius: 5px;
+  background: {p.BRIGHT}; flex: none; }}
+
+/* Cards: big radius, flat, tinted */
+.gg-kpi {{ background: {p.SURFACE}; border-radius: 24px; box-shadow: none; position: relative; }}
+.gg-kpi-label {{ display: flex; align-items: center; gap: 8px; color: {p.TEXT}; }}
+.gg-kpi-label::before {{ content: ""; width: 12px; height: 12px; border-radius: 4px; background: {p.BRIGHT}; flex: none; }}
+.gg-kpi-value {{ font-weight: 500; font-size: 32px; letter-spacing: -0.03em; }}
+.gg-kpi:hover {{ border-color: {p.INK}; }}
+.gg-hero {{ border-radius: 28px; border: 0; }}
+.gg-insight {{ border: 1px solid {p.BORDER}; border-radius: 20px; background: {p.SURFACE}; display: flex; gap: 12px; align-items: flex-start; }}
+.gg-insight::before {{ content: ""; width: 12px; height: 12px; margin-top: 6px; border-radius: 4px; background: {p.BRIGHT}; flex: none; }}
+[data-testid="stPlotlyChart"], [data-testid="stDataFrame"] {{ border-radius: 24px; box-shadow: none; padding: 10px 12px; }}
+div[data-testid="stExpander"] details {{ border-radius: 20px; }}
+.gg-empty {{ border-radius: 24px; }}
+
+/* Buttons: pills. Primary actions in ink; segmented controls highlight in lime. */
+.stApp button[kind="secondary"], .stApp [data-testid="stDownloadButton"] button {{ border-radius: 999px !important; padding-left: 18px !important; padding-right: 18px !important; }}
+.stApp [data-testid="stDownloadButton"] button {{ background: {p.INK} !important; color: {p.ON_INK} !important; border-color: {p.INK} !important; }}
+.stApp [data-testid="stDownloadButton"] button p {{ color: {p.ON_INK} !important; }}
+.stApp [data-testid="stDownloadButton"] button:hover {{ opacity: .88; color: {p.ON_INK} !important; }}
+.stApp button[kind="secondary"]:hover {{ border-color: {p.INK} !important; color: {p.TEXT} !important; }}
+.stApp button[data-variant="segmented_control"] {{ border-radius: 999px !important; background: {p.SURFACE} !important; border: 1px solid {p.BORDER} !important;
+  margin-right: 6px; }}
+.stApp button[data-variant="segmented_control"] p {{ color: {p.TEXT} !important; font-weight: 500; }}
+.stApp button[data-variant="segmented_control"][aria-checked="true"] {{ background: {p.BRIGHT} !important; border-color: {p.BRIGHT} !important; }}
+.stApp button[data-variant="segmented_control"][aria-checked="true"] p {{ color: {p.ON_BRIGHT} !important; font-weight: 600; }}
+.stApp [data-testid="stButtonGroup"] [role="radiogroup"] {{ gap: 0; }}
+.gg-footer {{ border-top: 0; text-align: center; }}
 </style>
 """
 

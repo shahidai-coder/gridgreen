@@ -132,7 +132,7 @@ flowchart LR
 ```
 gridgreen/
 ├── app.py                     Streamlit entry point (navigation, sidebar filters)
-├── pages/                     The seven dashboard pages
+├── views/                     The seven dashboard pages (not "pages/": that name switches Streamlit to its old multipage mode)
 ├── src/gridgreen/
 │   ├── config.py              Constants and every analytical definition
 │   ├── api_client.py          HTTP client: timeouts, bounded retries, envelope checks

@@ -136,9 +136,9 @@ def setup_page() -> None:
         page_title="GridGreen",
         page_icon=str(assets / "icon.svg"),
         layout="wide",
-        initial_sidebar_state="auto",
+        initial_sidebar_state="collapsed",
     )
-    logo = "logo-dark.svg" if pal().name == "dark" else "logo.svg"  # light wordmark on the dark sidebar
+    logo = "logo-dark.svg" if pal().name == "dark" else "logo.svg"  # light wordmark on the dark header
     st.logo(str(assets / logo), size="large", icon_image=str(assets / "icon.svg"))
     register_plotly_template()
     st.markdown(global_css(pal()), unsafe_allow_html=True)
@@ -149,30 +149,40 @@ def reset_filters() -> None:
         del st.session_state[key]
 
 
-def sidebar(ds: Dataset | None) -> None:
-    with st.sidebar:
-        st.markdown(
-            '<p class="gg-tagline">Carbon intelligence for a cleaner grid.</p>', unsafe_allow_html=True
-        )
-        st.toggle(
-            "🌙  Dark mode",
+def toolbar(ds: Dataset | None) -> None:
+    """The controls that used to live in the sidebar, as one bar at the top of every page.
+
+    Navigation itself sits in Streamlit's header (st.navigation(position="top")).
+    """
+    with st.container(key="gg_toolbar"):
+        cols = st.columns([2.4, 1.1, 1.1, 1.6], vertical_alignment="center")
+        if ds is not None and not ds.empty:
+            lo, hi = data_bounds(ds)
+            cols[0].date_input(
+                "Period (UK local dates)",
+                value=(lo, hi),
+                min_value=lo,
+                max_value=hi,
+                key=f"{FILTER_PREFIX}range",
+                format="DD/MM/YYYY",
+                label_visibility="collapsed",
+                help="Period (UK local dates)",
+            )
+            cols[1].button("Reset filters", on_click=reset_filters, width="stretch", key="gg_tb_reset")
+        cols[2].toggle(
+            "Dark mode",
             key=THEME_KEY,
             help="Switches GridGreen's colours for this browser session. "
             "Data tables keep Streamlit's own style.",
         )
-        if ds is None or ds.empty:
-            return
-        lo, hi = data_bounds(ds)
-        st.date_input(
-            "Period (UK local dates)",
-            value=(lo, hi),
-            min_value=lo,
-            max_value=hi,
-            key=f"{FILTER_PREFIX}range",
-            format="DD/MM/YYYY",
-        )
-        st.button("Reset all filters", on_click=reset_filters, width="stretch")
-        st.caption(f"Database: `{Path(ds.db_path).name}`")
+        if ds is not None:
+            cols[3].markdown(
+                f'<div class="gg-db">Database <code>{html.escape(Path(ds.db_path).name)}</code></div>',
+                unsafe_allow_html=True,
+            )
+
+
+sidebar = toolbar  # old name, kept so external scripts that import it keep working
 
 
 def _fmt_ts(ts: pd.Timestamp | None) -> str:
@@ -182,7 +192,13 @@ def _fmt_ts(ts: pd.Timestamp | None) -> str:
     return f"{day_month_year(local)}, {local:%H:%M}"
 
 
-def topbar(title: str, ctx: Context | None) -> None:
+BOLT_SVG = (
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" '
+    'stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>'
+)
+
+
+def topbar(title: str, ctx: Context | None, show_title: bool = True) -> None:
     status_html = ""
     period = "No data loaded"
     if ctx is not None:
@@ -199,8 +215,11 @@ def topbar(title: str, ctx: Context | None) -> None:
             f"Data to {_fmt_ts(last)}; {html.escape(run_txt)}</span>"
         )
     st.markdown(
-        f'<div class="gg-topbar"><div><h1>{html.escape(title)}</h1>'
-        f'<div class="gg-period">{html.escape(period)}</div></div>{status_html}</div>',
+        f'<div class="gg-topbar{"" if show_title else " gg-compact"}"><div class="gg-titlewrap"><div>'
+        + (f'<span class="gg-kicker">GridGreen</span><h1>{html.escape(title)}</h1>' if show_title else "")
+        + f'<div class="gg-period">{html.escape(period)}</div></div>'
+        + ('<span class="gg-mark" aria-hidden="true">' + BOLT_SVG + "</span>" if show_title else "")
+        + f"</div>{status_html}</div>",
         unsafe_allow_html=True,
     )
     if ctx is not None and ctx.ds.is_demo:

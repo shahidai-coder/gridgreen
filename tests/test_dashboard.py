@@ -19,13 +19,13 @@ from gridgreen.pipeline import run_pipeline
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGES = [
-    "pages/overview.py",
-    "pages/carbon_trends.py",
-    "pages/generation_mix.py",
-    "pages/best_time.py",
-    "pages/forecast_analysis.py",
-    "pages/data_quality.py",
-    "pages/methodology.py",
+    "views/overview.py",
+    "views/carbon_trends.py",
+    "views/generation_mix.py",
+    "views/best_time.py",
+    "views/forecast_analysis.py",
+    "views/data_quality.py",
+    "views/methodology.py",
 ]
 
 
@@ -57,13 +57,13 @@ def test_every_page_renders_without_exceptions(monkeypatch, demo_db, page):
     at.switch_page(page).run()
     assert not at.exception, [e.value for e in at.exception]
     html = " ".join(m.value for m in at.markdown)
-    if page != "pages/methodology.py":
+    if page != "views/methodology.py":
         assert "synthetic data" in html  # demo banner is always shown on demo data
 
 
 def test_filters_change_results(monkeypatch, demo_db):
     at = _app(monkeypatch, demo_db).run()
-    at.switch_page("pages/best_time.py").run()
+    at.switch_page("views/best_time.py").run()
     before = " ".join(m.value for m in at.markdown)
     at.segmented_control(key="gg_bt_dur").set_value("6 hours").run()
     assert not at.exception
@@ -81,15 +81,14 @@ def test_date_filter_narrows_period(monkeypatch, demo_db):
 
 
 def test_reset_button_clears_filters(monkeypatch, demo_db):
-    # AppTest only exposes sidebar widgets on the first run when st.navigation is used
-    # (verified separately in a real browser), so the filter is pre-set in session state.
+    # The filter bar sits at the top of every page; the period is pre-set in session state.
     import datetime as dt
 
     at = _app(monkeypatch, demo_db)
     at.session_state["gg_range"] = (dt.date(2026, 3, 10), dt.date(2026, 3, 12))
     at.run()
     assert any("10 Mar 2026 to 12 Mar 2026" in m.value for m in at.markdown)
-    reset = next(b for b in at.sidebar.button if b.label == "Reset all filters")
+    reset = next(b for b in at.button if b.label == "Reset filters")
     reset.click().run()
     assert not at.exception
     assert not any("10 Mar 2026 to 12 Mar 2026" in m.value for m in at.markdown)
@@ -99,3 +98,18 @@ def test_missing_database_shows_empty_state(monkeypatch, tmp_path):
     at = _app(monkeypatch, tmp_path / "does_not_exist.duckdb").run()
     assert not at.exception
     assert any("No data loaded yet" in m.value for m in at.markdown)
+
+
+def test_navigation_is_at_the_top_and_sidebar_is_empty(monkeypatch, demo_db):
+    at = _app(monkeypatch, demo_db).run()
+    assert not at.exception
+    assert len(at.sidebar.button) == 0 and len(at.sidebar.toggle) == 0  # controls moved to the top bar
+    assert any(t.label == "Dark mode" for t in at.toggle)
+    src = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert 'position="top"' in src
+
+
+def test_no_pages_directory_next_to_app():
+    # A folder called "pages" next to app.py makes Streamlit run a page directly on a deep link
+    # (old multipage mode) without app.py, so setup never runs and the first chart crashes.
+    assert not (ROOT / "pages").exists()

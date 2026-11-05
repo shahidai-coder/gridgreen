@@ -12,7 +12,7 @@ def test_no_glibc_only_strftime_codes():
     # '%-d', '%-H' etc. are glibc extensions; Windows raises "Invalid format string".
     offenders = [
         f"{p.relative_to(ROOT)}:{i}"
-        for p in [*ROOT.glob("src/**/*.py"), *ROOT.glob("pages/*.py"), ROOT / "app.py"]
+        for p in [*ROOT.glob("src/**/*.py"), *ROOT.glob("views/*.py"), ROOT / "app.py"]
         for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
         if re.search(r"%-[a-zA-Z]", line)
     ]

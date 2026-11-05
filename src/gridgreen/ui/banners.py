@@ -131,7 +131,7 @@ def _scene(kind: str, p: Palette) -> str:
 
     def ink(bg: str) -> str:  # dark or light label, whichever reads better on this box
         r, g, b = (int(bg[i : i + 2], 16) / 255 for i in (1, 3, 5))
-        return "#16213A" if 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 else "#FFFFFF"
+        return p.ON_BRIGHT if 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 else "#FFFFFF"
 
     boxes = "".join(
         f'<g class="pop" style="animation-delay:{i * 0.25}s"><rect x="{12 + i * 88}" y="56" width="70" height="48" rx="12" fill="{c}" '
@@ -161,16 +161,16 @@ def page_banner(kind: str, height: int = 178) -> None:
   * {{ box-sizing: border-box; }}
   body {{ margin: 0; font-family: {FONT_STACK}; background: transparent; }}
   .wrap {{ display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; gap: 12px; height: {height - 6}px;
-          background: linear-gradient(120deg, {p.SURFACE} 0%, {p.SURFACE_2} 100%); border: 1px solid {p.BORDER}; border-radius: 22px;
-          padding: 16px 22px; box-shadow: {p.SHADOW}; overflow: hidden; }}
-  h2 {{ margin: 0; font-size: clamp(17px, 2.3vw, 23px); line-height: 1.25; font-weight: 700; letter-spacing: -0.02em;
-        background: linear-gradient(90deg, {p.TEXT} 0%, {p.EMERALD} 40%, {p.ACCENT_2} 60%, {p.TEXT} 85%); background-size: 260% 100%;
-        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: shimmer 9s ease-in-out infinite; }}
-  h2 span {{ display: inline-block; opacity: 0; transform: translateY(10px); animation: rise .55s cubic-bezier(.2,.7,.2,1) forwards;
-             -webkit-text-fill-color: transparent; background: inherit; -webkit-background-clip: text; background-clip: text; }}
+          background: {p.SURFACE}; border: 1px solid {p.BORDER}; border-radius: 28px;
+          padding: 16px 26px; overflow: hidden; position: relative; }}
+  .wrap::after {{ content: ""; position: absolute; right: -150px; top: -150px; width: 220px; height: 220px; border-radius: 50%;
+          border: 1px solid {p.BORDER}; box-shadow: 0 0 0 28px {p.SURFACE}, 0 0 0 29px {p.BORDER}; pointer-events: none; }}
+  h2 {{ margin: 0; font-size: clamp(17px, 2.3vw, 23px); line-height: 1.22; font-weight: 500; letter-spacing: -0.02em; color: {p.TEXT}; }}
+  h2 span {{ display: inline-block; opacity: 0; transform: translateY(10px); animation: rise .55s cubic-bezier(.2,.7,.2,1) forwards; }}
   p {{ margin: 6px 0 10px; color: {p.TEXT_2}; font-size: 13px; }}
   .chip {{ display: inline-block; margin: 0 6px 6px 0; padding: 4px 11px; border-radius: 999px; font-size: 12px; font-weight: 600;
-           background: {p.LOW_BG}; color: {p.LOW_TEXT}; }}
+           background: {p.BRIGHT}; color: {p.ON_BRIGHT}; }}
+  .chip + .chip {{ background: {p.SURFACE_2}; color: {p.TEXT}; }}
   svg {{ width: 100%; height: {height - 40}px; }}
   .draw {{ stroke-dasharray: 600; stroke-dashoffset: 600; animation: draw 3.5s ease-out forwards; }}
   .flow {{ animation: flow 1s linear infinite; }}

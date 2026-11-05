@@ -233,6 +233,23 @@ def build_payload(
         else None
     )
 
+    # Day of the week (Monday first, UK convention): mean of every half-hour on that weekday.
+    dow = pd.to_datetime(f["local_date"].astype(str)).dt.day_of_week.to_numpy()
+    wk = f.assign(_dow=dow).groupby("_dow").agg(mean=("actual", "mean"), days=("local_date", "nunique"))
+    wk = wk.reindex(range(7))
+    weekdays = {
+        "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        "mean": [_num(v) for v in wk["mean"]],
+        "days": [int(v) if pd.notna(v) else 0 for v in wk["days"]],
+    }
+
+    # Zero-carbon and fossil shares (period average), and each fuel's correlation with intensity.
+    groups = {
+        k: _num(f[c].mean()) if c in f.columns and f[c].notna().any() else None
+        for k, c in (("zero_carbon", "share_zero_carbon"), ("fossil", "share_fossil"))
+    }
+    fuel_r = {str(r["fuel"]): _num(r["pearson_r"], 2) for _, r in corr.iterrows()}
+
     best_day = daily["mean"].idxmin()
     total_expected = float(daily["expected"].sum())
     return {
@@ -273,6 +290,19 @@ def build_payload(
         },
         "days": days,
         "best_day": str(best_day),
+        "best_day_mean": _num(daily.loc[best_day, "mean"], 0),
+        "weekdays": weekdays,
+        "groups": groups,
+        "fuel_r": fuel_r,
+        "weekend": (
+            {
+                "diff": _num(dt["hour_matched_diff"], 0),
+                "weekend_days": dt["weekend_days"],
+                "weekday_days": dt["weekday_days"],
+            }
+            if dt["available"]
+            else None
+        ),
         "clocks": clocks,
         "mix": mix_avg,
         "monthly": monthly,
@@ -307,10 +337,36 @@ def build_payload(
             "highBg": p.DEMO_BG,
             "highText": p.DEMO_TEXT,
             "shadow": p.SHADOW,
+            "ink": p.INK,
+            "onInk": p.ON_INK,
+            "bright": p.BRIGHT,
+            "onBright": p.ON_BRIGHT,
         },
     }
 
 
+# Pages the Overview may open. The browser can only ask for one of these names.
+NAV_PAGES = {
+    "carbon_trends": "views/carbon_trends.py",
+    "generation_mix": "views/generation_mix.py",
+    "best_time": "views/best_time.py",
+    "forecast_analysis": "views/forecast_analysis.py",
+    "data_quality": "views/data_quality.py",
+    "methodology": "views/methodology.py",
+}
+
+
+def nav_target(value: Any, last_handled: Any) -> str | None:
+    """Page to open for a click sent by the component, or None.
+
+    The component sends {"nav": name, "t": click time}. The time makes each click unique, so a value
+    that Streamlit replays on a rerun never triggers a second, unwanted page switch.
+    """
+    if not isinstance(value, dict) or value.get("t") is None or value.get("t") == last_handled:
+        return None
+    return NAV_PAGES.get(str(value.get("nav")))
+
+
 def grid_pulse(payload: dict[str, Any], key: str = "grid_pulse") -> Any:
-    """Render the component. Returns the day the user last clicked (or None)."""
+    """Render the component. Returns the latest navigation click, {"nav": ..., "t": ...}, or None."""
     return _COMPONENT(data=payload, key=key, default=None)

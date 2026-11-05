@@ -1,10 +1,10 @@
 [theme]
 # Must match EMERALD / CANVAS / SURFACE / TEXT in src/gridgreen/ui/theme.py (checked by tests/test_theme.py).
 base = "light"
-primaryColor = "#2563C9"
-backgroundColor = "#F3F6FB"
+primaryColor = "#477510"
+backgroundColor = "#EDEFEA"
 secondaryBackgroundColor = "#FFFFFF"
-textColor = "#16213A"
+textColor = "#1E231F"
 font = "sans serif"
 
 [server]

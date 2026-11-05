@@ -42,6 +42,10 @@ PAIRS = [
     ("YELLOW_TEXT", "YELLOW", 4.5),  # tip card
     ("DEMO_TEXT", "DEMO_BG", 4.5),
     ("ERROR", "SURFACE", 3.0),  # non-text UI
+    ("ON_INK", "INK", 4.5),  # dark pills and buttons on the Overview
+    ("ON_BRIGHT", "BRIGHT", 4.5),  # lime highlight chips and card
+    ("INK", "SURFACE_2", 3.0),  # clock bars on tinted cards (non-text UI)
+    ("INK", "SURFACE", 3.0),
 ]
 
 
