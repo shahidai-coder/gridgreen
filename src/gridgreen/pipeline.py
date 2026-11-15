@@ -26,7 +26,7 @@ from gridgreen.extract import (
     extract_intensity,
 )
 from gridgreen.schemas import GenerationRecord, IntensityRecord
-from gridgreen.validate import summarize_rejections, validate_records
+from gridgreen.validate import cross_validate_intensity, summarize_rejections, validate_records
 
 log = logging.getLogger(__name__)
 
@@ -144,6 +144,8 @@ def run_pipeline(
         # ---------------- Validate
         val_i = validate_records(ext_i.records, IntensityRecord, "intensity", run_id)
         val_g = validate_records(ext_g.records, GenerationRecord, "generation", run_id)
+        # Second pass: an intensity value can be valid alone but impossible next to the fuel mix.
+        val_i = cross_validate_intensity(val_i, val_g.accepted, run_id)
         val_f = (
             validate_records(ext_f.records, IntensityRecord, "forecast_snapshot", run_id) if ext_f else None
         )
@@ -164,6 +166,17 @@ def run_pipeline(
         summary.missing_intervals = len(
             transform.detect_missing_intervals(df_i, range_start, range_end, column="actual")
         )
+        # Slots whose only payload in this run was rejected must not keep an older stored value.
+        accepted_slots = set(df_i["interval_start_utc"])
+        stale_slots = sorted(
+            {
+                r.interval_start_utc
+                for r in val_i.rejected
+                if r.interval_start_utc is not None
+                and range_start <= r.interval_start_utc < range_end
+                and pd.Timestamp(r.interval_start_utc) not in accepted_slots
+            }
+        )
         snap = pd.DataFrame()
         if val_f and val_f.accepted:
             snap = transform.intensity_to_frame(val_f.accepted)
@@ -180,6 +193,7 @@ def run_pipeline(
         con.execute("BEGIN TRANSACTION")
         try:
             loaded_at = datetime.now(UTC)
+            removed = load.delete_intensity_slots(con, stale_slots)
             summary.intensity_new = load.upsert_intensity(con, df_i, run_id, source, loaded_at)
             summary.intensity_upserted = len(df_i)
             summary.generation_new = load.upsert_generation(con, df_g, run_id, source, loaded_at)
@@ -200,6 +214,9 @@ def run_pipeline(
         else:
             summary.status = "success"
             summary.message = "Completed."
+        if removed:
+            summary.message += f" Removed {removed} stored intensity slot(s) now rejected by validation."
+            log.warning("Run %s removed %d stored slot(s) rejected by validation", run_id, removed)
         if parquet_dir is not None:
             load.export_parquet(con, parquet_dir)
     except Exception as exc:

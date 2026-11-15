@@ -42,7 +42,19 @@ def grid_replay(df: pd.DataFrame, value: str = "actual", height: int = 430) -> b
         "scale": [[s, c] for s, c in theme.pal().INTENSITY_SCALE],
     }
     html = _HTML.replace("__DATA__", json.dumps(payload, separators=(",", ":")))
-    for token in ("ON_ACCENT", "TEXT_2", "FOREST", "EMERALD", "LIME", "TEXT", "BORDER", "SURFACE", "GRID"):
+    for token in (
+        "ON_INK",
+        "INK",
+        "ON_ACCENT",
+        "TEXT_2",
+        "FOREST",
+        "EMERALD",
+        "LIME",
+        "TEXT",
+        "BORDER",
+        "SURFACE",
+        "GRID",
+    ):
         html = html.replace(f"__{token}__", getattr(theme.pal(), token))
     html = html.replace("__FONT__", theme.FONT_STACK)
     components.html(html, height=height)
@@ -60,7 +72,7 @@ _HTML = r"""
   .top { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin-bottom:10px; }
   h3 { font: 600 16px/1.2 __FONT__; letter-spacing:-0.01em; margin:0; flex: 1 1 260px; }
   button { font: 600 13px/1 __FONT__; border:0; border-radius:999px; padding:8px 14px; cursor:pointer;
-           background: var(--emerald); color: __ON_ACCENT__; min-width: 74px; }
+           background: __INK__; color: __ON_INK__; min-width: 74px; }
   button:hover { filter: brightness(1.12); }
   button:focus-visible, input:focus-visible { outline:2px solid var(--emerald); outline-offset:2px; }
   .date { font-variant-numeric: tabular-nums; color: var(--text2); min-width: 120px; }

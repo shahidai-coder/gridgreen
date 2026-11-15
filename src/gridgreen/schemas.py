@@ -18,6 +18,7 @@ from pydantic import (
 )
 
 from gridgreen.config import (
+    EMITTING_SHARE_MIN_PP,
     INTENSITY_MAX,
     INTENSITY_MIN,
     SHARE_TOLERANCE_PP,
@@ -112,4 +113,28 @@ class GenerationRecord(_Interval):
         total = sum(f.perc for f in self.generationmix)
         if abs(total - 100.0) > SHARE_TOLERANCE_PP:
             raise ValueError(f"fuel shares do not sum to 100 ± {SHARE_TOLERANCE_PP} pp ({total:.2f}%)")
+        return self
+
+
+class IntensityMixCheck(BaseModel):
+    """Cross-dataset plausibility check: one intensity reading against the same half-hour's fuel mix.
+
+    The 0-1000 range check alone accepts an "actual" of exactly 0, but 0 gCO2/kWh is physically
+    impossible while gas, coal, oil or biomass plants are generating. Each endpoint is valid on its own,
+    so this can only be checked once both records for the slot are known.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    interval_start: AwareDatetime
+    actual: int | None = None
+    emitting_share: float = Field(ge=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def _zero_needs_no_emitters(self):
+        if self.actual == 0 and self.emitting_share >= EMITTING_SHARE_MIN_PP:
+            raise ValueError(
+                "actual intensity is 0 while carbon-emitting generation is present "
+                f"({self.emitting_share:.1f}% fossil + biomass)"
+            )
         return self

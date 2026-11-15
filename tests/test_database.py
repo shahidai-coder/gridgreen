@@ -2,8 +2,10 @@ from datetime import UTC, datetime, timedelta
 
 import pandas as pd
 import pytest
+from conftest import generation_payload, intensity_payload
 
 from gridgreen import database, load
+from gridgreen.api_client import ApiResponse
 from gridgreen.config import DATA_SOURCE_DEMO, DATA_SOURCE_LIVE
 from gridgreen.demo import SyntheticClient
 from gridgreen.pipeline import floor_slot, run_pipeline
@@ -145,6 +147,66 @@ def test_failed_run_is_logged_and_nothing_is_loaded(tmp_path):
     assert runs.iloc[0]["status"] == "failed" and "unexpected crash" in runs.iloc[0]["message"]
     assert database.table_counts(c)["carbon_intensity"] == 0
     c.close()
+
+
+class _ReplayClient:
+    """Serves fixed payloads, like the API returning the same history on every call."""
+
+    def __init__(self, intensity: list[dict], generation: list[dict]):
+        self._intensity, self._generation = intensity, generation
+
+    def intensity(self, start, end) -> ApiResponse:
+        return ApiResponse("replay://intensity", self._intensity)
+
+    def generation(self, start, end) -> ApiResponse:
+        return ApiResponse("replay://generation", self._generation)
+
+
+def test_pipeline_removes_a_stored_slot_that_validation_now_rejects(tmp_path):
+    """The 2026-08-06 11:00 UTC case: actual = 0 was loaded under the old 0-1000 range rule."""
+    db = tmp_path / "z.duckdb"
+    t0 = datetime(2026, 8, 6, 10, 30, tzinfo=UTC)
+    slots = [t0 + timedelta(minutes=30 * i) for i in range(3)]
+    mix = {"wind": 30.2, "solar": 24.5, "imports": 17.1, "nuclear": 12.6, "biomass": 8.1, "gas": 7.4}
+    client = _ReplayClient(
+        [
+            intensity_payload(s, actual=a, forecast=62, index="low")
+            for s, a in zip(slots, (34, 0, 41), strict=True)
+        ],
+        [generation_payload(s, mix) for s in slots],
+    )
+    # State before the fix: the impossible reading is already in the analytical table.
+    c = database.connect(db)
+    database.init_schema(c)
+    old = pd.DataFrame(
+        {
+            "interval_start_utc": pd.to_datetime(slots, utc=True),
+            "interval_end_utc": pd.to_datetime(slots, utc=True) + pd.Timedelta("30min"),
+            "forecast": pd.array([62] * 3, dtype="Int64"),
+            "actual": pd.array([34, 0, 41], dtype="Int64"),
+            "intensity_index": pd.array(["low"] * 3, dtype="string"),
+        }
+    )
+    load.upsert_intensity(c, old, "old-run", DATA_SOURCE_LIVE, datetime.now(UTC))
+    c.close()
+
+    kwargs = dict(db_path=db, client=client, start=slots[0], end=slots[-1] + timedelta(minutes=30))
+    first = run_pipeline(**kwargs, snapshot_forecast=False, now=kwargs["end"])
+    second = run_pipeline(**kwargs, snapshot_forecast=False, now=kwargs["end"])
+
+    assert first.status == second.status == "success"
+    assert first.intensity_accepted == 2 and first.intensity_rejected == 1
+    assert "Removed 1 stored intensity slot" in first.message
+    assert "Removed" not in second.message  # idempotent: nothing left to remove
+    assert first.missing_intervals == 1  # the rejected half-hour is reported as a gap, not filled in
+    c = database.connect(db, read_only=True)
+    stored = database.read_intensity(c)
+    rejected = database.read_rejected(c)
+    c.close()
+    assert stored["actual"].tolist() == [34, 41]
+    assert len(rejected) == 1 and rejected["times_seen"].iloc[0] == 2
+    assert rejected["dataset"].iloc[0] == "intensity"
+    assert "carbon-emitting generation" in rejected["reason"].iloc[0]
 
 
 def test_rejected_records_are_deduplicated_across_runs(con):

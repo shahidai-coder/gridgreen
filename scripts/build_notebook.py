@@ -34,7 +34,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import plotly.io as pio
+import streamlit.logger
 from IPython.display import Markdown, display
+
+# The chart helpers are shared with the Streamlit dashboard. Outside `streamlit run` Streamlit logs a
+# harmless "missing ScriptRunContext" warning for every chart, so only errors are shown here.
+streamlit.logger.set_log_level("ERROR")
 
 from gridgreen import database
 from gridgreen.analytics import (best_windows, day_type_comparison, fuel_correlations, heatmap_matrix,
@@ -47,8 +52,21 @@ from gridgreen.ui import charts
 from gridgreen.ui.theme import register_plotly_template
 
 register_plotly_template()
-pio.renderers.default = "plotly_mimetype+notebook"
+
+def _static_export_works() -> bool:
+    \"\"\"True when Plotly can write PNGs here (needs the optional kaleido package and Chrome).\"\"\"
+    try:
+        pio.to_image({"data": []}, format="png", width=50, height=50)
+        return True
+    except Exception:
+        return False
+
+# GitHub cannot run JavaScript, so interactive-only charts show as blank there. When static export is
+# available each chart is also saved as a PNG, which GitHub displays; Jupyter and VS Code still get the
+# interactive version. Without kaleido the notebook falls back to interactive charts only.
+pio.renderers.default = "plotly_mimetype+png" if _static_export_works() else "plotly_mimetype+notebook_connected"
 pd.set_option("display.precision", 2)
+pd.set_option("display.max_colwidth", 140)
 
 def say(text: str) -> None:
     display(Markdown(text))"""),
@@ -117,10 +135,25 @@ say("Half-hours per **complete** local day (DST check; partial first/last days e
     + ". Expect 46 on a March clock change, 50 on an October change, 48 otherwise.")
 rejected.groupby(["dataset", "reason"]).size().rename("records").to_frame() if not rejected.empty else "No rejected records."
 """),
+    md("""### Rejected records in detail
+Validation has two passes. The first checks each record alone (types, half-hour alignment, 0–1000 gCO₂/kWh
+range, fuel shares summing to 100 ± 1 pp). The second compares each intensity reading with the fuel mix of
+the same half-hour: an actual of exactly **0 gCO₂/kWh** is rejected when fossil or biomass plants supplied
+1% or more of generation, because that is physically impossible. A rejected half-hour is stored in
+`rejected_records` with its original payload and stays **missing** in the analysis; it is not replaced
+with an estimate."""),
+    code("""if rejected.empty:
+    say("No record has been rejected in this database.")
+else:
+    shown = rejected[["dataset", "interval_start_utc", "reason", "raw_payload", "times_seen"]].copy()
+    shown["interval_start_utc"] = shown["interval_start_utc"].dt.strftime("%Y-%m-%d %H:%M UTC")
+    display(shown)"""),
     md("""## 6. Cleaning and transformation
 Cleaning happens in the pipeline, not here, so the dashboard and notebook use identical data:
 
-* Records failing Pydantic validation are stored in `rejected_records`, never silently dropped.
+* Records failing Pydantic validation (either pass, see section 5) are stored in `rejected_records`, never
+  silently dropped. If a half-hour that was loaded earlier is rejected by a later run, its stored row is
+  removed in the same transaction.
 * Duplicates are resolved deterministically by preferring rows that have an actual.
 * Missing half-hours stay missing; nothing is imputed.
 * Local-time features are derived from UTC, so DST days have 46 or 50 half-hours.
@@ -172,7 +205,8 @@ ss"""),
 **Method.** Pearson and Spearman correlations of each fuel share with intensity, scatterplots, and intensity by
 zero-carbon share band. Shares are compositional (they sum to 100%), so they are not independent."""),
     code("""corr = fuel_correlations(a)
-corr"""),
+with pd.option_context("display.float_format", "{:.2f}".format):
+    display(corr)"""),
     code("charts.correlation_bars(corr)"),
     code("charts.share_scatter(a, 'share_wind') if 'share_wind' in a else 'No wind share column.'"),
     code("""b = a.dropna(subset=["share_zero_carbon"]).copy()
@@ -258,8 +292,8 @@ else:
     md("""## 14. Findings, limitations and conclusions
 
 ### Findings
-The cell below assembles the findings from the computed results. **Before submitting, read it against the
-charts above and write your own interpretation underneath.**"""),
+The cell below assembles the headline numbers from the results computed above, so they always match the
+database this notebook was run on. The README repeats them with interpretation."""),
     code("""lines = [f"* Period: {first:%d %b %Y} to {last:%d %b %Y} ({days} days); source `{SOURCE}`."]
 lines.append(f"* Mean intensity {st_['mean']:.0f} gCO₂/kWh (median {st_['median']:.0f}).")
 lines.append(f"* Cleanest time of day on average: {lo['time']}; most intensive: {hi['time']}.")
@@ -285,8 +319,33 @@ say("\\n".join(lines))"""),
 * Forecast horizon cannot be recovered from history.
 * Results are national; regional intensity can differ substantially.
 
-### Conclusion
-*(Write your conclusion here, after reviewing the real-data results above.)*"""),
+### Conclusion"""),
+    code("""if SOURCE == DATA_SOURCE_DEMO:
+    say("> **Synthetic demonstration data: no conclusion about the GB grid can be drawn from this run.**")
+else:
+    hourly = a.groupby("hour")[["share_solar", "share_gas"]].mean()
+    lo_h, hi_h = int(lo["time"][:2]), int(hi["time"][:2])
+    zc = a["share_zero_carbon"].dropna()
+    say(
+        f"**When is Britain's electricity cleanest?** In these {days} days, around the middle of the day: the "
+        f"average was lowest at {lo['time']} ({lo['mean']:.0f} gCO₂/kWh) and highest at {hi['time']} "
+        f"({hi['mean']:.0f}). Weekends were lower than weekdays in {dt['hours_weekend_lower']} of "
+        f"{dt['hours_compared']} matched hours ({dt['hour_matched_diff']:+.0f} gCO₂/kWh on average), and {best_s} was the cleanest season in this sample.\\n\\n"
+        f"**What makes it that way?** The fuel mix. Around {lo['time']} solar supplied {hourly.loc[lo_h, 'share_solar']:.0f}% of "
+        f"generation and gas {hourly.loc[lo_h, 'share_gas']:.0f}%; around {hi['time']} solar was down to "
+        f"{hourly.loc[hi_h, 'share_solar']:.0f}% and gas up to {hourly.loc[hi_h, 'share_gas']:.0f}%. Intensity rose and fell "
+        f"almost in step with the gas share (r = {pos['pearson_r']:.2f}) and fell as the wind share rose "
+        f"(r = {neg['pearson_r']:.2f}). Zero-carbon sources supplied at least half of generation in "
+        f"{(zc >= 50).mean():.0%} of half-hours.\\n\\n"
+        f"**How reliable is the pattern?** Only partly. The spread between days at the same time of day "
+        f"({spread:.0f} gCO₂/kWh between the 10th and 90th percentile) is much larger than the average daily "
+        f"swing ({hi['mean'] - lo['mean']:.0f}), largely because the wind share changes from day to day. A fixed habit such as starting a "
+        f"2-hour load at {row['typical_best_start']} saved {abs(row['typical_vs_baseline_pct']):.0f}% against a random start on "
+        f"average; checking the forecast for the day is the better guide, and the published forecast was "
+        f"typically within {m.mae:.0f} gCO₂/kWh of the estimated actual.\\n\\n"
+        "These are descriptive results for one period of about a year. They are correlations, the 'actual' "
+        "values are NESO estimates, and one year cannot separate a seasonal pattern from that year's weather."
+    )"""),
 ]
 
 nb = nbf.v4.new_notebook(

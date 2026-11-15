@@ -82,6 +82,28 @@ The API presents a complete percentage distribution rounded to one decimal place
 move the sum by a few tenths. One point allows for rounding but catches a missing fuel. That case is
 tested: a record with a fuel dropped sums to ~97% and is rejected.
 
+**Q: Did validation ever miss something? (the 0 g reading)**
+Yes, and it is the best example in the project.
+- **What happened:** 6 August 2026, 11:00 UTC had `actual = 0` gCO₂/kWh (forecast 62). In the same
+  half-hour gas supplied 7.4% and biomass 8.1% of generation. Zero is impossible while those plants run.
+- **Why Pydantic passed it:** 0 is inside the 0–1000 range. The value is only wrong when you look at the
+  fuel mix, and intensity and mix come from two different endpoints, so a per-record model cannot see it.
+- **How we found it:** the Overview showed "Cleanest half-hour: 0", which made no sense.
+- **The fix:** a second validation pass (`validate.cross_validate_intensity`) with its own Pydantic model
+  (`IntensityMixCheck`). It rejects an actual of exactly 0 when fossil + biomass share is 1% or more.
+- **Why 1%:** biomass has the lowest emission factor of the emitting fuels, about 120 gCO₂/kWh, so 1% of
+  it alone adds about 1.2 gCO₂/kWh, which cannot round down to 0.
+- **What happens to the record:** it goes to `rejected_records` with its payload, and the half-hour stays
+  missing. We do not replace it with the forecast or an average, because that would be inventing data.
+- **Why the rule is narrow:** the readings before and after (34 and 41) also look low against a forecast
+  of 62, but they are physically possible, so we cannot prove they are wrong and we keep them.
+
+**Q: The bad row was already in the database. How did you get it out?**
+An upsert only inserts or updates; it never deletes. So re-running the pipeline with the new rule would
+have rejected the record but left the old row in place. The pipeline now deletes the stored row of any
+half-hour whose payload is rejected in the current run, inside the same transaction as the load. A test
+reproduces exactly this case (`test_pipeline_removes_a_stored_slot_that_validation_now_rejects`).
+
 **Q: Why not reject unknown fuel names?**
 A new category such as storage is new information, not invalid data. It is kept, lower-cased, and grouped
 as *other* (`config.fuel_category`).
@@ -248,7 +270,7 @@ state rather than invented numbers.
 ## 14. Automated testing
 
 **Q: What do the tests cover, and how do you avoid hitting the API?**
-82 tests. API calls are mocked with `respx`, the backoff sleep is injected, and the data come from
+151 tests. API calls are mocked with `respx`, the backoff sleep is injected, and the data come from
 deterministic hand-written fixtures plus a seeded synthetic generator.
 
 Dashboard tests render all seven pages with Streamlit's `AppTest`. The app was also driven in headless
@@ -259,7 +281,9 @@ Yes. Examples:
 - the DuckDB result-draining and `pytz` issues;
 - pandas Spearman's hidden SciPy dependency;
 - a wrong DST test fixture, where the test was wrong rather than the code;
-- the icon CSS problem.
+- the icon CSS problem;
+- the impossible 0 g reading (section 4), found by looking at the dashboard, not by a test;
+- the `pages/` folder bug (section 15).
 
 These make good viva material because they show why running code beats assuming.
 
@@ -267,11 +291,20 @@ These make good viva material because they show why running code beats assuming.
 
 **Q: What does CI do?**
 GitHub Actions on push and pull request, with read-only permissions:
-- installs locked dependencies with uv on Python 3.15 and 3.12;
+- installs locked dependencies with uv on Linux (Python 3.15 and 3.12) and Windows (3.14);
 - runs Ruff lint and format checks, then pytest;
 - executes the notebook against synthetic data as a smoke test.
 
-Any failed step fails the build.
+Any failed step fails the build. The actions are pinned to full commit SHAs instead of tags, because a
+tag can be moved to different code later and a SHA cannot.
+
+**Q: Why is the page folder called `views/` and not `pages/`?**
+Streamlit treats a folder named `pages/` next to `app.py` as its old multipage mode. On a direct link or a
+refresh it ran the page file on its own, without `app.py`, so the shared setup never ran and the first
+Plotly chart failed with "invalid template". Renaming the folder fixed it. Streamlit's `AppTest` did not
+catch this because it always starts from `app.py`; we found it in a real browser. A test now fails if a
+`pages/` folder comes back. The first push still had the old folder in it, which taught us to verify a
+push with a fresh clone (`git ls-files pages` must be empty).
 
 **Q: Why test on 3.12 too?**
 3.15 is the latest stable release and the primary target. Hosting platforms often lag behind new Python
@@ -294,7 +327,25 @@ Be ready to state these without being asked:
 - Correlation is not causation, and the shares are compositional.
 - The confidence intervals are too narrow.
 - There is no historical forecast horizon.
-- The CI workflow and the deployment had not been run at the time of writing.
+- 288 half-hours have no generation record, so the mix analysis uses 18,399 of 18,687 half-hours.
+- The plausibility rule only catches an actual of exactly 0.
+
+## 17. Our results (know these numbers)
+
+Period: 1 Oct 2025 to 25 Oct 2026, 390 days, 18,687 half-hours with an actual. Units: gCO₂/kWh.
+
+| Question | Result |
+|---|---|
+| Overall | Mean 123, median 117; lowest 20 (7 Apr 2026), highest 286 (8 Jan 2026) |
+| A. Daily pattern | Cleanest 12:00 (102), most intensive 19:00 (152). Day-to-day spread (138) is bigger than the daily swing (51) |
+| B. Seasons | Spring 111 (cleanest), winter 134. Cleanest month April 2026 (94), most intensive January 2026 (145) |
+| C. Fuel mix | Gas r = +0.97, wind r = −0.70, solar −0.30, biomass +0.34 |
+| D. Weekend | Weekday 128, weekend 109; weekends lower in 24 of 24 hours, by 19 on average |
+| E. Best window | Start a 2-hour load at 11:30: 17% below a random start. Best single window: 7 Apr 2026, 12:30 (22) |
+| F. Forecast | MAE 9.9, RMSE 14.3, bias −0.1; 95% of errors under 28 |
+
+Be ready for: "Winter had the most wind (40%), so why was it the dirtiest season?" Because it also had the
+most gas (30%) and almost no solar (2%). Wind share alone does not decide the result.
 
 ---
 

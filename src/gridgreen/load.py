@@ -56,6 +56,19 @@ def upsert_intensity(
     return _count(con, "carbon_intensity") - before
 
 
+def delete_intensity_slots(con: duckdb.DuckDBPyConnection, slots: Iterable[datetime]) -> int:
+    """Remove stored intensity rows for slots whose latest payload was rejected.
+
+    An upsert never deletes, so without this a value accepted by an older, weaker rule would stay in the
+    analytical table forever, even after validation starts rejecting it. Returns the rows removed.
+    """
+    removed = 0
+    for slot in slots:
+        removed += scalar(con, "SELECT count(*) FROM carbon_intensity WHERE interval_start_utc = ?", [slot])
+        con.execute("DELETE FROM carbon_intensity WHERE interval_start_utc = ?", [slot])
+    return removed
+
+
 def upsert_generation(
     con: duckdb.DuckDBPyConnection, df: pd.DataFrame, run_id: str, source: str, loaded_at: datetime
 ) -> int:

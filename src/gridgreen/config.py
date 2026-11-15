@@ -55,6 +55,12 @@ FUEL_ALIASES: dict[str, str] = {
 # Analytical groupings (documented in README > Methodology).
 ZERO_CARBON_FUELS: tuple[str, ...] = ("hydro", "nuclear", "solar", "wind")
 FOSSIL_FUELS: tuple[str, ...] = ("coal", "gas", "oil")
+# Fuels that always emit CO2 when they run (used by the zero-intensity plausibility check).
+CARBON_EMITTING_FUELS: tuple[str, ...] = (*FOSSIL_FUELS, "biomass")
+# Smallest emitting share that makes a reading of exactly 0 gCO2/kWh impossible. Biomass has the lowest
+# emission factor of these fuels (about 120 gCO2/kWh in NESO's methodology), so 1 pp of it alone adds
+# about 1.2 gCO2/kWh, which cannot round down to 0.
+EMITTING_SHARE_MIN_PP = 1.0
 # biomass: combustion with non-zero NESO emission factor -> neither group.
 # imports: mixed, unknown foreign generation -> reported separately.
 # other / storage / unrecognised -> "other".
