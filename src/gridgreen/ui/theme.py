@@ -97,6 +97,7 @@ HEADING_STACK = FONT_STACK
 # asks pal() for the palette of the *current session*, so one viewer switching
 # to dark mode never changes another viewer's page on a shared server.
 # ============================================================================
+DEFAULT_DARK = True  # GridGreen opens in dark mode; the toggle still switches it per session
 THEME_KEY = "theme_dark"  # session_state key of the sidebar toggle (no "gg_" prefix: Reset keeps it)
 
 
@@ -262,7 +263,7 @@ def is_dark() -> bool:
     try:
         import streamlit as st
 
-        return bool(st.session_state.get(THEME_KEY, False))
+        return bool(st.session_state.get(THEME_KEY, DEFAULT_DARK))
     except Exception:
         return False
 

@@ -28,7 +28,14 @@ from gridgreen.config import (
     PROJECT_ROOT,
 )
 from gridgreen.transform import build_analytical_frame, expected_slots
-from gridgreen.ui.theme import THEME_KEY, global_css, pal, register_plotly_template, template_name
+from gridgreen.ui.theme import (
+    DEFAULT_DARK,
+    THEME_KEY,
+    global_css,
+    pal,
+    register_plotly_template,
+    template_name,
+)
 
 FILTER_PREFIX = "gg_"
 
@@ -131,6 +138,8 @@ def get_context() -> Context | None:
 
 # ----------------------------------------------------------------- chrome
 def setup_page() -> None:
+    # Set before pal() and before the toggle is drawn: an unset toggle would write False on the first run.
+    st.session_state.setdefault(THEME_KEY, DEFAULT_DARK)
     assets = PROJECT_ROOT / "assets"
     st.set_page_config(
         page_title="GridGreen",

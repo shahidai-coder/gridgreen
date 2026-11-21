@@ -113,3 +113,10 @@ def test_no_pages_directory_next_to_app():
     # A folder called "pages" next to app.py makes Streamlit run a page directly on a deep link
     # (old multipage mode) without app.py, so setup never runs and the first chart crashes.
     assert not (ROOT / "pages").exists()
+
+
+def test_opens_in_dark_mode_by_default(monkeypatch, demo_db):
+    at = _app(monkeypatch, demo_db).run()
+    assert not at.exception
+    assert at.session_state["theme_dark"] is True
+    assert at.toggle(key="theme_dark").value is True
