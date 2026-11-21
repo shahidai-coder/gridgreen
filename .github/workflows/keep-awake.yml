@@ -1,0 +1,52 @@
+# Keeps https://gridgreen.streamlit.app/ awake.
+# Streamlit Community Cloud puts apps to sleep after 12 hours without traffic, and its docs say
+# "to keep your app awake, simply visit your app". This workflow visits it every 6 hours with a
+# real (headless) browser and presses the wake-up button if the app is already asleep.
+name: Keep app awake
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"   # every 6 hours (minute 17 avoids the busy top of the hour)
+  workflow_dispatch:          # lets you run it by hand from the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  visit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_URL: https://gridgreen.streamlit.app/
+    steps:
+      - name: Install Playwright and Chromium
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+
+      - name: Visit the app and wake it if needed
+        shell: python3 {0}
+        run: |
+          import os, re
+          from playwright.sync_api import sync_playwright
+
+          url = os.environ["APP_URL"]
+          wake = re.compile(r"get this app back up", re.I)
+          with sync_playwright() as p:
+              browser = p.chromium.launch()
+              page = browser.new_page()
+              page.goto(url, wait_until="domcontentloaded", timeout=60_000)
+              page.wait_for_timeout(8_000)
+              # The wake-up button can sit on the page itself or inside an iframe.
+              clicked = False
+              for frame in page.frames:
+                  button = frame.get_by_role("button", name=wake)
+                  if button.count():
+                      button.first.click()
+                      clicked = True
+                      print("App was asleep: pressed the wake-up button.")
+                      break
+              if not clicked:
+                  print("App was awake.")
+              page.wait_for_timeout(60_000 if clicked else 15_000)  # stay long enough to count as a visit
+              browser.close()
