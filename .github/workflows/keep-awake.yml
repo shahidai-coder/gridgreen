@@ -20,13 +20,15 @@ jobs:
       APP_URL: https://gridgreen.streamlit.app/
     steps:
       - name: Install Playwright and Chromium
+        # Ubuntu 24.04 blocks pip installs into the system Python, so use a private virtualenv.
         run: |
-          python3 -m pip install --quiet playwright==1.49.1
-          python3 -m playwright install --with-deps chromium
+          python3 -m venv "$RUNNER_TEMP/pw"
+          "$RUNNER_TEMP/pw/bin/pip" install --quiet playwright==1.49.1
+          "$RUNNER_TEMP/pw/bin/python" -m playwright install --with-deps chromium
 
       - name: Visit the app and wake it if needed
-        shell: python3 {0}
         run: |
+          cat > "$RUNNER_TEMP/visit.py" <<'PY'
           import os, re
           from playwright.sync_api import sync_playwright
 
@@ -50,3 +52,5 @@ jobs:
                   print("App was awake.")
               page.wait_for_timeout(60_000 if clicked else 15_000)  # stay long enough to count as a visit
               browser.close()
+          PY
+          "$RUNNER_TEMP/pw/bin/python" "$RUNNER_TEMP/visit.py"
